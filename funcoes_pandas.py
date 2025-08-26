@@ -5,6 +5,11 @@ import numpy
 import sys
 import io
 from pympler import asizeof
+import requests
+import ast
+import operator
+import copy
+import builtins
 
 def create_df (data, index=None, dtype=None):
     """
@@ -1763,3 +1768,2594 @@ def idxmax(df, index, columns, axis=0):
             new_df.append(linha)
 
     return new_df
+
+# Funções 
+
+def verificar_condicao(v, na_rep, float_format, string_csv):
+
+    """
+    Função que verifica os argumentos de determinados parâmetros da função to_csv
+    Seus parâmetros são:
+     - v: Valor de uma célula do DataFrame
+     - na_rep: Valor que será preenchido por padrão em caso de apresentar valores indeterminados/indefinidos
+     - float_format: Define como será o formato dos valores float (ex:'.2f%')
+     - string_csv: String que está armazenando o DataFrame
+    Retorna: Uma string
+    """
+
+    if v == None or v == 'nan':
+        string_csv += str(na_rep)
+
+    elif float_format != None and isinstance(v, float):
+        if isinstance(float_format, str):
+            txt = '{:' + str(float_format) + '}'
+            string_csv += txt.format(float(v))
+
+        elif callable(float_format):
+            string_csv += str(float_format(v))
+
+    else:
+        string_csv += str(v)
+
+    return string_csv
+
+def verificar_columns(labels, columns):
+
+    """
+    Função que retorna o index numérico das colunas
+    Seus parâmetros são:
+     - labels: Rótulos das colunas do DataFrame
+     - columns: Colunas desejadas
+    Retorna: Uma lista ou None (em caso de erro)
+    """
+
+    qtde_c = len(columns)
+
+    lista = [None]*qtde_c
+    aux = 0
+
+    for i in range(qtde_c):
+        for j in range(len(labels)):
+            if str(columns[i]) == str(labels[j]):
+                lista[aux] = j
+                aux += 1
+
+        if aux != i+1:
+            return "Erro: A coluna " + str(columns[i]) + " não é válida" # Pensar em uma mensagem de erro melhor
+
+    if aux == qtde_c:
+        return lista
+
+def to_csv(df, col, ind, arq=None, sep=',', na_rep='', float_format=None, columns=None, header=True, index=True):
+
+    """
+    Grava os dados de um DataFrame em um arquivo no formato CSV
+    Seus parâmetros são:
+     - df: DataFrame que será convertida para o formato CSV (em string ou arquivo)
+     - labels: Rótulos das colunas do DataFrame
+     - ind: Nome dos indexes das linhas do DataFrame
+     - arq: Arquivo que será salvo o DataFrame convertido
+     - sep: Caractere que será utilizado como separador
+     - na_rep: String que será utilizado para definir como lidar com dados faltantes, o que será colocado
+               para preencher esses valores
+     - float_format: String que determinará como os valores de ponto flutuantes serão formatados
+     - columns: String ou lista de colunas que serão escritas
+     - header: Lista ou bool que define se serão incluídos os rótulos das colunas
+     - index: Lista ou bool que define ser serão incluídos os indexes das linhas
+    Retorna: Uma string ou None, dependendo do argumento de arq
+    """
+
+    if columns != None: # Chama a função verificar_columns para pegar o index
+        if header == True or header == False:
+            lista = verificar_columns(col, columns)
+        else:
+            lista = verificar_columns(header, columns)
+
+        if lista == None:
+            return None
+
+    # String que armazenará os dados do DataFrame no formato CSV
+    string_csv = ''
+
+    # Auxiliares para caso sejam incluídos os indexes das linhas ou das colunas
+    il = 0
+    ic = 0
+    auxl = 0
+    auxc = 0
+
+    # Verifica se os nomes virão do df original ou dos outros parâmetros (header/index)
+    if header == True:
+        nome_col = col
+    else:
+        nome_col = header
+
+    if index == True:
+        nome_ind = ind
+    else:
+        nome_ind = index
+
+    if header != False: # Os rótulos serão incluídos na string
+        il = 1 # Define com 1 o auxiliar para as linhas, pois como será adicionado os rótulos,
+               # necessitará de uma linha a mais (loop)
+
+    if index != False: # Os indexes serão incluídos na string
+        ic = 1 # Define com 1 o auxiliar para as colunas, pois como será adicionado os indexes,
+               # necessitará de uma coluna a mais (loop)
+
+    for i in range(len(df)+il): # Acessando as linhas do DataFrame
+        for j in range(len(df[0])+ic): # Acessando as colunas do DataFrame
+
+            if header != False:
+                if index != False: # header == True (ou lista) e index == True (ou lista)
+                    if (i == 0 and j == 0):
+                        string_csv += ' '
+                    elif i == 0:
+                        if columns == None or (j-ic in lista): # Caso columns possua um argumento, verifica se a coluna faz parte da lista de colunas
+                            string_csv += str(nome_col[auxc])
+                            auxc += 1
+                    elif j == 0:
+                        string_csv += str(nome_ind[auxl])
+                        auxl += 1
+                    else:
+                        if columns == None or (j-ic in lista):
+                            string_csv = verificar_condicao(df[i-il][j-ic], na_rep, float_format, string_csv)
+
+                else: # header == True (ou lista) e index == False
+                    if i == 0:
+                        if columns == None or (j-ic in lista):
+                            string_csv += str(nome_col[auxc])
+                            auxc += 1
+                    else:
+                        if columns == None or (j-ic in lista):
+                            string_csv = verificar_condicao(df[i-il][j-ic], na_rep, float_format, string_csv)
+
+            else: # header == False
+                if index != False: # header == False e index == True (ou lista)
+
+                    if j == 0:
+                        string_csv += str(nome_ind[auxl])
+                        auxl += 1
+                    else:
+                        if columns == None or (j-ic in lista):
+                            string_csv = verificar_condicao(df[i-il][j-ic], na_rep, float_format, string_csv)
+                else: # header == False e index == False
+                    if columns == None or (j-ic in lista):
+                        string_csv = verificar_condicao(df[i-il][j-ic], na_rep, float_format, string_csv)
+
+            if j < len(df[0])+ic-1: # Verifica se não é a última coluna
+                if columns == None or j < len(columns)+ic-1:
+                    string_csv += str(sep)
+
+            elif i < len(df)+il-1: # Verifica se não é a última linha, e como está
+                                   # sendo utilizado elif, é garantido que é a última coluna
+                string_csv += '\n'
+
+
+    # Verifica o que foi passado como argumento em arq
+    if arq == None: # Valor padrão, retornará o CSV como uma string em vez de arquivo
+        return string_csv
+
+    else: # Caso contrário, significa que passou o caminho de um arquivo
+
+        if isinstance(arq, str): # Verifica se é passado um caminho em string
+            # Abre um arquivo no modo de escrita
+            arquivo = open(arq, 'w')
+
+        elif not arq.closed and arq.writable(): # Verifica se o arquivo está aberto e se é possível escrever nele
+            arquivo = arq
+
+        # Escreve a string previamente formatada em CSV no arquivo
+        arquivo.write(string_csv)
+
+        # Fecha o arquivo
+        arquivo.close()
+
+        return None
+
+def read_csv(arq, sep=',', header='infer', names=None, index_col=None, usecols=None, dtype=None):
+
+    """
+    Função que lê um arquivo CSV
+    Seus parâmetros são:
+     - arq: Arquivo que será lido
+     - sep: Caractere que será utilizado como separador/delimitador
+     - header: Inteiro que definirá a linha em que se encontra os rótulos das colunas, em que:
+        - 'infer': ?
+     - names: Lista que contêm os rótulos das colunas
+     - index_col: Index numérico ou rótulo da coluna em que se encontra os indexes das linhas
+     - usecols: Lista com as colunas que serão lidas
+     - dtype: Determina qual o tipo de dado que os valores do DataFrames serão formatados, podendo receber um dicionário
+    Retorna: Um DataFrame (matriz, coluna, índice)
+    """
+
+    try:
+        req = requests.get(arq)
+        arquivo = req.text.splitlines()
+        arq_open = False
+    except requests.exceptions.RequestException:
+        arquivo = open(arq, 'r', encoding='utf-8')
+        arq_open = True
+
+        if not arquivo:
+            return "Erro: Falha ao abrir arquivo"
+
+    df = []
+    col = []
+    ind = []
+
+    for linha in arquivo:
+        lista = linha.replace('\n', '').split(sep)
+        df.append(lista)
+
+    if names != None and not isinstance(header, int):
+        if len(names) != len(df[0]):
+            print("Erro: names apresenta " + str(len(names)) + " campos enquanto que o DataFrame possui " + str(len(df[0])) + " colunas")
+            return None
+
+        for i in range(len(names)):
+            for j in range(len(names)):
+                if i != j and names[i] == names[j]:
+                    print("Erro: Coluna " + str(names[i]) + " está duplicada")
+                    return None
+
+        else:
+            col = names.copy()
+
+    elif header == 'infer' or (header == None and names == None):
+        col = df[0]
+        df.pop(0)
+
+    elif isinstance(header, int):
+        if header < len(df):
+            col = df[header]
+            df.pop(header)
+        else:
+            return "Erro: header está fora dos limites das colunas" # Pensar em uma mensagem melhor
+
+    # Pega o índice numérico da coluna que contêm os indexes
+    if not isinstance(index_col, bool) and (isinstance(index_col, int) or isinstance(index_col, str)):
+        if isinstance(index_col, str):
+            if index_col in col:
+                index_col = col.index(index_col)
+            else:
+                return "Erro: Coluna não encontrada"
+
+        c = index_col
+
+        if c >= len(df): # Se for uma coluna que não está contido na lista, retorna um erro
+            return "Erro: index_col está fora dos limites das colunas" # Pensar em uma mensagem melhor
+
+        else:
+            ind.insert(0, col[c])
+            col.pop(c)
+
+            for i in range(len(df)):
+                ind.append(df[i][c])
+                df[i].pop(c)
+
+    else: # Se não for informado nenhum valor no parâmetro index_col, cria-se um novo index sequencial
+        seq = 0
+
+        for i in range(len(df)-1): # Menos 1 devido ao fato que umas das linhas do DataFrame será dos rótulos das colunas
+            ind.append(seq)
+            seq += 1
+
+    if len(df) < len(ind):
+        df.insert(0, [None]*len(col))
+
+    if usecols != None:
+
+        cont = 0
+        aux = []
+
+        for i in range(len(usecols)):
+            if isinstance(usecols, int):
+                cont += 1
+
+        if cont == len(usecols): # Verifica se usecols é uma lista de índices numéricos
+            for j in range(len(usecols)):
+
+                if j in usecols:
+                    aux.append(col[j])
+
+            usecols = aux # Transforme a lista de índices numéricos para uma lista de rótulos
+
+        for j in range(len(col)-1, -1, -1):
+            if j < len(col) and not col[j] in usecols:
+                col.pop(j)
+
+                for i in range(len(df)):
+                    df[i].pop(j)
+
+    lista_float = []
+    lista_str = []
+
+    for i in range(len(df)): # Conversão dos números para seus respectivos tipos
+        for j in range(len(df[i])):
+            if df[i][j] != None:
+                if df[i][j].replace('.', '', 1).isnumeric(): # Utiliza replace para remover um ponto (.), pois isnumeric
+                                                             # não identifica valores com ponto como um valor numérico
+                    df[i][j] = float(df[i][j])
+
+                    if df[i][j] - int(df[i][j]) == 0:
+                        df[i][j] = int(df[i][j])
+                    elif not j in lista_float:
+                        lista_float.append(j)
+
+                elif not j in lista_str:
+                    lista_str.append(j)
+
+    for c in range(len(lista_str)): # Conversão para string
+        for i in range(len(df)):
+            if lista_str[c] < len(df[i]) and df[i][lista_str[c]] != None:
+                df[i][lista_str[c]] = str(df[i][lista_str[c]])
+
+    for c in range(len(lista_float)): # Conversão para float das colunas que tenham no mínimo um valor do tipo float
+        if not lista_float[c] in lista_str:
+            for i in range(len(df)):
+                if lista_float[c] < len(df[i]) and df[i][lista_float[c]] != None:
+                    df[i][lista_float[c]] = float(df[i][lista_float[c]])
+
+    if dtype != None: # Caso seja informado um valor diferente de None, realiza a conversão dos valores numéricos
+        if isinstance(dtype, dict): # Verifica se é um dicionário
+            chaves = list(dtype.keys()) # Pega a lista das chaves do dicionário (converte em lista, pois a função keys()
+                                        # retorna um objeto do tipo dict_keys)
+
+            for i in range(len(chaves)): # Percorre a lista de chaves
+                if chaves[i] in col: # Verifica se a chave está presente na lista de colunas
+                    coluna = col.index(chaves[i])
+
+                    for linha in range(len(df)):
+                        if df[linha][coluna] != None:
+                            tipo = dtype.get(chaves[i])
+
+                            if isinstance(tipo, str): # Se receber uma string, converte-a em sua respectiva classe para a
+                                                      # conversão posterior
+                                if tipo == "int":
+                                    tipo = int
+                                elif tipo == "float":
+                                    tipo = float
+
+                            if not isinstance(df[linha][coluna], str):
+                                df[linha][coluna] = tipo(df[linha][coluna])
+                            else:
+                                return "Erro: Não é possível converter uma String para um valor numérico."
+                else:
+                    return "Erro: Coluna não encontrada"
+        else:
+            if isinstance(dtype, str): # Se receber uma string, converte-a em sua respectiva classe para a conversão posterior
+                if dtype == "int":
+                    dtype = int
+                elif dtype == "float":
+                    dtype = float
+
+            for i in range(len(df)):
+                for j in range(len(df[i])):
+                    if (dtype == int or dtype == float or dtype == complex) and isinstance(df[i][j], str):
+                        return "Erro: Não é possível converter uma String para um valor numérico"
+                    else:
+                        if df[i][j] != None:
+                            df[i][j] = dtype(df[i][j])
+
+    if arq_open:
+        arquivo.close()
+
+    return df, col, ind
+
+def drop(df, col, ind, labels=None, axis=0, index=None, columns=None, inplace=False, errors='raise'):
+
+    """
+    Função que remove linhas ou colunas de um DataFrame
+    Seus parâmetros são:
+     - df: DataFrame no qual será realizada a operção de remoção
+     - col: Rótulos das colunas do DataFrame
+     - ind: Indexes das linhas do DataFrame
+     - labels: Colunas ou linhas que serão removidas
+     - axis: Eixo da operção de remoção, em que:
+        - 0: Opera em linhas (index)
+        - 1: Opera em colunas (columns)
+     - index: Parâmetro alternativo para especificação do eixo, equivalente a labels, axis=0
+     - columns: Parâmetro alternativo para especificação do eixo, equivalente a labels, axis=1
+     - inplace: Define se a remoção será realizada diretamente no DataFrame informado ou se será
+       realizado em uma cópia do DataFrame, em que:
+        - False: Cria uma cópia e opera a remoção nela
+        - True: Opera a remoção diretamente no DataFrame
+     - errors: Determina se os erros serão informados (com a interrupção da operação) ou ignorados, em que:
+        - 'raise': Informa os erros e interrompe a operação
+        - 'ignore': Ignora os erros e continua a operação com as linhas/colunas válidas
+    """
+
+    if labels != None and (index != None or columns != None):
+        return "Erro: Não é possível especificar ambos os parâmetros 'labels' e 'index/columns'"
+
+    qtde_linhas = len(ind)
+    rem = 1 # Variável utilizada para saber se será removida linha e coluna
+
+    if inplace == False:
+
+        # Copia linha por linha
+        novo_df = [None]*qtde_linhas
+        for i in range(qtde_linhas):
+            novo_df[i] = df[i].copy()
+
+        novo_col = col.copy()
+        novo_ind = ind.copy()
+    else:
+        novo_df = df
+        novo_col = col
+        novo_ind = ind
+
+    if index != None:
+        labels = index
+        axis = 0
+
+    elif columns != None:
+        labels = columns
+        axis = 1
+
+    if index != None and columns != None:
+        rem = 2
+
+    for r in range(rem):
+        if labels != None and isinstance(labels, list):
+            cont = 0
+
+            if axis == 0: # Remoção em linha
+                for aux in range(len(labels)):
+                    for i in range(qtde_linhas):
+                        if i < len(novo_ind) and novo_ind[i] == labels[aux]:
+                            novo_df.pop(i)
+                            novo_ind.pop(i)
+                            cont += 1
+
+                    # Verifica se alguma linha não foi encontrada no DataFrame
+                    # O cont (contador) incrementa em 1 toda vez que for removido uma coluna, logo
+                    # o contador sempre deverá ser igual ao valor do aux (index auxiliar, que começa em 0)
+                    # mais 1, de maneira resumida, se for percorrido um elemento de labels, então
+                    # o contador deverá ser igual a 1, visto que 1 valor deveria ser removido
+                    if cont != aux+1 and errors == "raise":
+                        return "Erro: Linha " + str(labels[aux]) + " não foi encontrada."
+
+            elif axis == 1: # Remoção em coluna
+                for aux in range(len(labels)):
+                    for j in range(len(novo_col)):
+                        if j < len(novo_col) and novo_col[j] == labels[aux]:
+                            for i in range(qtde_linhas):
+                                if i < len(novo_ind):
+                                    novo_df[i].pop(j)
+                            novo_col.pop(j)
+                            cont += 1
+
+                    # Verifica se alguma coluna não foi encontrada no DataFrame
+                    if cont != aux+1 and errors == "raise":
+                        return "Erro: Coluna " + str(labels[aux]) + " não foi encontrada."
+
+        elif not isinstance(labels, list): # Verifica se não é lista
+            if axis == 0:
+                for i in range(qtde_linhas):
+
+                    if i < len(novo_ind) and novo_ind[i] == labels:
+                        novo_df.pop(i)
+                        novo_ind.pop(i)
+
+            elif axis == 1:
+                for j in range(qtde_linhas):
+                    if j < len(novo_col) and novo_col[j] == labels:
+
+                        for i in range(qtde_linhas):
+                            if i < len(novo_ind):
+                                novo_df[i].pop(j)
+
+                        novo_col.pop(j)
+
+        if columns != None:
+            labels = columns
+            axis = 1
+
+    if labels == None:
+        # Remove linha por linha
+        for i in range(qtde_linhas-1, -1,-1):
+            novo_df.pop(i)
+
+        for i in range(len(novo_col)-1, -1, -1):
+            novo_col.pop(i)
+
+        for i in range(len(novo_ind)-1, -1, -1):
+            novo_ind.pop(i)
+
+    return novo_df, novo_col, novo_ind
+
+def concat(objs, axis=0, join='outer', ignore_index=False, verify_integrity=False, sort=False, copy=None):
+
+    """
+    Função que realiza a concatenação de duas ou mais DataFrames/Series
+    Seus parâmetros são:
+     - objs: Lista com os DataFrames/Series que serão concatenados
+     - axis: Eixo da operação de concatenação
+     - join: Define quais colunas/linhas irão para o resultado
+        - 'outer': Todas as colunas/linhas serão incluídas na concatenação
+        - 'inner': Apenas as colunas/linhas que estão presentes em todos os DataFrames/Series serão incluídas na concatenação
+     - ignore_index: Determina se será criado uma nova indexação sequencial para o resultado
+     - verify_integrity: Verifica se há colunas/linhas com nomes repetidos, em que:
+        - True: Retorna um erro caso houver
+        - False: Não faz nada
+     - sort: Define se as colunas/linhas serão organizadas em ordem lexicográfica
+     - copy: Realiza a cópia quando possível
+
+    Importante: Os elementos do DataFrame (matriz, coluna, index) e da Series (vetor, index) devem estar
+    dentro de uma lista para a identificação e separação dos mesmos.
+    """
+
+    df_result = []
+    col_result = []
+    ind_result = []
+    seq = -1 # Rótulos (sequência) para Series, pois não apresentam rótulos, apenas indexes
+
+    if axis == 0: # Concatenação em linhas
+
+        if join == 'outer':
+            if len(objs[0]) == 3: # Se apresentar 3 elementos significa que é um DataFrame (matriz, colunas, indexes)
+                df_result = objs[0][0]
+                col_result = objs[0][1]
+                ind_result = objs[0][2]
+
+            elif len(objs[0]) == 2: # É uma Series, pois apresenta 2 elementos (vetor, indexes)
+                col_result.append(seq+1)
+
+                for i in range(len(objs[0][0])):
+                    df_result.append([objs[0][0][i]])
+
+                ind_result = objs[0][1]
+
+        for o1 in objs: # Percorre a lista de objetos (DataFrame/Series)
+
+            # Verifica a quantidade de elementos do objeto o
+            if len(o1) == 2: # Se apresenta apenas dois elementos significa que trata-se de uma Series (vetor, indexes)
+                df = o1[0]
+                ind = o1[1]
+                seq += 1 # Incrementa quando encontra uma Series
+                col = [seq] # Em formato de lista para funcionar como se fosse um DataFrame
+
+            elif len(o1) == 3: # Caso contrário, apresente três elementos significa que é um DataFrame (matriz, colunas, indexes)
+                df = o1[0]
+                col = o1[1]
+                ind = o1[2]
+
+            if join == 'inner': # Se for inner, será realizado a verificação para cada coluna entre todos os objetos, em que
+                                # apenas aqueles que aparacem em todos os objetos serão adicionados ao resultado
+
+                for i in range(len(ind)): # Percorre as linhas do objeto o1
+                    linha = []
+
+                    # Para cada linha, verifica as colunas:
+                    for j in range(len(col)): # Percorre as colunas do objeto o2
+                        cont = 0 # Variável que armazenará a quantidade de vezes que tal coluna aparece entre todos os objetos
+                        aux = 1
+
+                        for o2 in objs: # Percorre a lista de objetos novamente, para realizar a comparação
+                            if len(o2) == 3: # o2 é um DataFrame
+                                if o1 != o2 and col[j] in o2[1]: # Verifica se a coluna de j do objeto o1 está presente entre as colunas de o2
+                                    cont += 1 # Se estiver, incrementa o contador em 1
+
+                            elif len(o2) == 2: # o2 é uma Series
+                                if o1 != o2 and col[j] == seq+aux:
+                                    cont += 1
+                                aux += 1
+
+                        if cont == len(objs)-1: # A quantidade de vezes que aparece é equivalente a quantidade de objetos da lista
+                            linha.append("NaN") # Adiciona um elemento NaN para cada coluna
+
+                            if col[j] in col_result and verify_integrity == True: # Verifica se a coluna já não está presente e se verify_integrity == True
+                                return "Erro: Coluna apresenta rótulos repetidos"
+
+                            elif not col[j] in col_result: # Verifica se a coluna já não foi adicionada
+                                col_result.append(col[j]) # Adiciona a coluna (de o1) na lista de colunas resultante
+
+                            if col[j] in col_result: # Se a coluna estiver presente busca a posição dela
+                                if len(o1) == 3: # DataFrame
+                                    linha[col_result.index(col[j])] = df[i][col.index(col[j])] # Altera o valor da posição correspondente
+                                elif len(o1) == 2: # Series
+                                    linha[col_result.index(col[j])] = df[i] # Altera o valor da posição correspondente
+
+                    if len(linha) != 0:
+                        df_result.append(linha) # Adiciona a linha ao df_result
+                        ind_result.append(ind[i]) # Adiciona o index da linha ao resultado
+
+            elif join == 'outer':
+                if objs.index(o1) != 0: # Pula o primeiro elemento
+                    for j in range(len(col)): # Percorre as colunas
+                        if not col[j] in col_result: # Verifica se a coluna não está presente até então no resultado
+                            col_result.append(col[j]) # Adiciona as colunas que não em presentes em col_result
+
+                            for i in range(len(df_result)): # Para cada coluna adicionada, adiciona mais um elemento NaN para cada linha
+                                df_result[i].append("NaN")
+
+                        elif col[j] in col_result and verify_integrity == True: # Verifica se a coluna já não está presente e se verify_integrity == True
+                            return "Erro: Coluna apresenta rótulos repetidos"
+
+                    for i in range(len(ind)):
+                        ind_result.append(ind[i])
+
+                    for i in range(len(ind)): # Percorre as linhas do df que será adicionado ao resultado
+                        linha = ["NaN"]*len(col_result)
+
+                        for j in range(len(col)): # Percorre as colunas do df que será adicionado
+                            if col[j] in col_result: # Se a coluna estiver presente busca a posição dela
+                                if len(o1) == 3: # DataFrame
+                                    linha[col_result.index(col[j])] = df[i][col.index(col[j])] # Altera o valor da posição correspondente
+                                elif len(o1) == 2: # Series
+                                    linha[col_result.index(col[j])] = df[i] # Altera o valor da posição correspondente
+
+                        df_result.append(linha)
+
+    elif axis == 1: # Concatenação em colunas
+        if join == 'inner':
+            for o1 in objs:
+
+                # Verifica a quantidade de elementos do objeto o
+                if len(o1) == 2: # Se apresenta apenas dois elementos significa que trata-se de uma Series (vetor, indexes)
+                    df = o1[0]
+                    ind = o1[1]
+                    seq += 1 # Incrementa quando encontra uma Series
+                    col = [seq] # Em formato de lista para funcionar como se fosse um DataFrame
+
+                elif len(o1) == 3: # Caso contrário, apresente três elementos significa que é um DataFrame (matriz, colunas, indexes)
+                    df = o1[0]
+                    col = o1[1]
+                    ind = o1[2]
+
+                for j in range(len(col)): # Percorre as colunas do objeto o1
+                    col_result.append(col[j]) # Cada coluna é adicionada ao resultado
+
+                for i in range(len(ind)): # Percorre as linhas de o1
+                    cont = 0
+
+                    for o2 in objs: # Percorre novamente a lista de objetos
+                        if o1 != o2 and ((len(o2) == 2 and ind[i] in o2[1]) or (len(o2) == 3 and ind[i] in o2[2])):
+                            cont += 1 # Incrementa o contador ao encontrar correspondência nas linhas
+
+                    if cont == len(objs)-1: # Se o contador for equivalente a quantidade de objetos significa que está presente em todos os objetos
+                        if not ind[i] in ind_result: # Se o index ainda não estiver incluído no resultado, inclui-se ele e uma nova linha
+                            ind_result.append(ind[i])
+                            df_result.append([])
+
+                        if ind[i] in ind_result: # Verifica se o index já foi incluído e caso for, procura a linha correspondente
+                            if verify_integrity == True:
+                                return "Erro: Linha apresenta indexes repetidos"
+                            else:
+                                if len(o1) == 2:
+                                    df[i] = [df[i]]
+
+                                df_result[ind_result.index(ind[i])] += df[i]
+
+        elif join == 'outer':
+            for o1 in objs:
+
+                # Verifica a quantidade de elementos do objeto o
+                if len(o1) == 2: # Se apresenta apenas dois elementos significa que trata-se de uma Series (vetor, indexes)
+                    df = o1[0]
+                    ind = o1[1]
+                    seq += 1 # Incrementa quando encontra uma Series
+                    col = [seq] # Em formato de lista para funcionar como se fosse um DataFrame
+
+                elif len(o1) == 3: # Caso contrário, apresente três elementos significa que é um DataFrame (matriz, colunas, indexes)
+                    df = o1[0]
+                    col = o1[1]
+                    ind = o1[2]
+
+                for i in range(len(ind)): # Percorre os indexes do objeto o1
+                    if not ind[i] in ind_result: # Verifica se tal index ainda não foi adicionado ao resultado
+                        ind_result.append(ind[i]) # Se ainda não estiver, adiciona
+                        df_result.append(["NaN"] * len(col_result)) # Para cada index incluído, adiciona-se uma
+                                                                    # nova linha, com a quantidade de suas colunas
+                                                                    # dependendo das colunas já incluídas no resultado
+
+                    elif ind[i] in ind_result and verify_integrity == True:
+                        return "Erro: Linha apresenta indexes repetidos"
+
+                for j in range(len(col)): # Percorre cada coluna de o1
+                    col_result.append(col[j]) # Adiciona cada coluna ao resultado
+
+                for i in range(len(df_result)): # Percorre as linhas do DataFrame resultante
+                    for j in range(len(col)): # Em cada linha, percorre suas colunas
+                        df_result[i].append("NaN") # Adiciona mais um elemento NaN na linha, em função da quantidade
+                                                   # de colunas
+
+                for i in range(len(ind)):
+                    linha = df_result[ind_result.index(ind[i])]
+
+                    for j in range(len(col)):
+
+                        for j2 in range(len(col_result)):
+                            if col_result[j2] == col[j] and linha[j2] == "NaN":
+                                if len(o1) == 2: # Series
+                                    linha[j2] = df[i]
+                                elif len(o1) == 3: # DataFrame
+                                    linha[j2] = df[i][j]
+
+    i_seq = 0
+
+    if ignore_index == True: # Caso ignore_index == True, cria uma nova indexação para o DataFrame resultante
+        if axis == 0:
+            for i in range(len(ind_result)):
+                ind_result[i] = i_seq
+                i_seq += 1
+
+        elif axis == 1:
+            for j in range(len(col_result)):
+                col_result[j] = i_seq
+                i_seq += 1
+
+    if sort == True:
+        if axis == 0: # Em linha
+
+            # Bubble Sort
+            for c1 in range(len(col_result)):
+                for c2 in range(len(col_result)-1-c1):
+                    if str(col_result[c2]) > str(col_result[c2+1]):
+                        aux = col_result[c2]
+                        col_result[c2] = col_result[c2+1]
+                        col_result[c2+1] = aux
+
+                        for i in range(len(df_result)):
+                            aux = df_result[i][c2]
+                            df_result[i][c2] = df_result[i][c2+1]
+                            df_result[i][c2+1] = aux
+
+        elif axis == 1:
+            for l1 in range(len(ind_result)):
+                for l2 in range(len(ind_result)-1-l1):
+                    if str(ind_result[l2]) > str(ind_result[l2+1]):
+                        aux = ind_result[l2]
+                        ind_result[l2] = ind_result[l2+1]
+                        ind_result[l2+1] = aux
+
+                        for j in range(len(df_result[l2])):
+                            aux = df_result[l2][j]
+                            df_result[l2][j] = df_result[l2+1][j]
+                            df_result[l2+1][j] = aux
+
+    return df_result, col_result, ind_result
+
+def ver_correspondencia(left_linha, col_l, right_linha, col_r, cols, cols_aux, suffixes):
+
+    """
+    Função que verifica se há correspondência de valores nos DataFrames em colunas específicas
+    Seus parâmetros são:
+     - left: Recebe uma linha do primeiro DataFrame
+     - col_l: Lista com os rótulos das colunas do primeiro DataFrame
+     - right: Recebe uma linha do segundo DataFrame
+     - col_r: Lista com os rótulos das colunas do segundo DataFrame
+     - cols: Colunas que serã utilizadas como parâmetro para a verificação
+     - cols_aux: Auxiliar de cols para quando seja especificado left_on e right_on, no qual este representa right_on
+    Retorna: True caso houver correspondência em TODAS as colunas, se não, False
+    """
+
+    cont = 0
+
+    if cols_aux == None:
+        cols_aux = cols
+
+    # For externo que percorre as colunas (cols)
+    # Um único for serve para as duas listas, cols e cols_aux, visto que o valor de cols[0] tem que corresponder a cols_aux[0] e assim sucessivamente
+    for i in range(len(cols)):
+
+        if cols[i] in col_l and cols_aux[i] in col_r:
+            if left_linha[col_l.index(cols[i])] == right_linha[col_r.index(cols_aux[i])]:
+                cont += 1
+        elif str(cols[i])+str(suffixes[0]) in col_l and str(cols_aux[i])+str(suffixes[1]) in col_r:
+            if left_linha[col_l.index(str(cols[i])+str(suffixes[0]))] == right_linha[col_r.index(str(cols_aux[i])+str(suffixes[1]))]:
+                cont += 1
+
+    if cont == len(cols): # Verifica se o contador é igual a quantidade de elementos passados em cols, em que se for, significa que houve
+                          # correspondência de valores em todas as colunas
+        return True
+    else:
+        return False
+
+def ver_maior(l1, l2, col_result, cols, s):
+
+    """
+    Função que verifica qual linha é maior a partir das chaves de junção
+    Seus parâmetros são:
+     - l1: Uma linha (vetor)
+     - l2: Outra linha (vetor) que será comparado com l1
+     - col_result: Lista com os rótulos das colunas de l1 e l2
+     - cols: Colunas de junção
+    Retorna: True se uma chave for maior que a chave correspondente da outra linha e
+             False se a chave não for maior ou se todas as chaves forem iguais
+    """
+
+    for i in range(len(cols)):
+
+        if cols[i] in col_result:
+            c = col_result.index(cols[i])
+
+            if l1[c] > l2[c]:
+                return True
+            elif l1[c] < l2[c]:
+                return False
+        elif str(cols[i])+str(s) in col_result:
+            c = col_result.index(str(cols[i])+str(s))
+
+            if l1[c] > l2[c]:
+                return True
+            elif l1[c] < l2[c]:
+                return False
+
+    return False
+
+
+def merge(left, col_l, ind_l, right, col_r, ind_r, how='inner', on=None, left_on=None, right_on=None, left_index=False, right_index=False, sort=False,
+          suffixes=('_x', '_y'), copy=True, indicator=False, validate=None):
+
+    """
+    Função que mescla dois objetos (DataFrame ou Series)
+    Seus parâmetros são:
+     - left: Primeiro DataFrame
+     - col_l: Lista com os rótulos das colunas do primeiro DataFrame
+     - ind_l: Lista com os indexes das linhas do primeiro DataFrame
+     - right: Segundo DataFrame que será mesclado com o primeiro
+     - col_r: Lista com os rótulos das colunas do segundo DataFrame
+     - ind_r: Lista com os indexes das linhas do segundo DataFrame
+     - how: Tipo de junção que será realizada, em que:
+        - 'left': Mantêm as linhas do primeiro DataFrame (left) e adiciona os dados do segundo (right)
+          quando houver correspondência
+        - 'right': Mantêm as linhas do segundo DataFrame e adiciona os dados do primeiro quando houver
+          correspondência
+        - 'outer': Retém todas as linhas de ambos os objetos (left e right), preenchendo valores
+          ausentes quando não há correspondência
+        - 'inner': Apresenta apenas as linhas que aparecem em ambos os objetos
+        - 'cross': Cria o produto cartesiano de ambos os objetos
+     - on: Rótulo da coluna ou lista de rótulos que serão usados como referência para combinar os dois
+       objetos
+     - left_on: Rótulo da coluna ou lista de rótulos do primeiro DataFrame que será utilizado como
+       referência juntamente com right_on para a junção
+     - right_on: Rótulo da coluna ou lista de rótulos do segundo DataFrame que será utilizado como
+       referência juntamente com left_on para a junção
+     - left_index e right_index: Definem se os indexes serão utilizados como chave de junção
+     - sort: Determinará se o resultado será organizado em ordem lexicográfica a partir do valor das
+       chaves usadas na junção
+     - suffixes: Sequência de dois elementos, no qual cada será utilizado como sufixo nos rótulos das
+       colunas de mesmo nome presentes em ambos os objetos
+     - copy: Define se será realizado uma cópia
+     - indicator: Adiciona uma nova coluna ao resultado que indica a fonte de cada linha
+     - validate: Verifica se a junção é de um tipo
+     Retorna: Um DataFrame
+    """
+
+    # Verifica se os argumentos de on, left_on e right_on são listas ou não, se não for, os "tranforma" para uma lista de único elemento
+    if not isinstance(on, list) and on != None:
+        on = [on]
+    elif (not isinstance(left_on, list) and left_on != None) and (not isinstance(right_on, list) and right_on != None):
+        left_on = [left_on]
+        right_on = [right_on]
+
+    # Verifica se foi passado um valor em on:
+    if on != None: # Padroniza as variáveis, ou seja, não será necessário ficar fazer derivações devido a esses parãmetros
+        left_on = on.copy()
+        right_on = on.copy()
+
+        on = None # Para não lançar um erro
+
+    """ ======== VERIFICAÇÕES QUE RETORNAM ERROS ======== """
+
+    # Verifica se passou valores em on, left_on e right_on com how='cross', se sim, retorna um erro
+    if (on != None or (left_on != None and right_on != None)) and how == 'cross':
+        return "Erro: Não pode passar valores em on, left_on ou right_on quando how='cross'"
+
+    # Verifica se foram passados valores em on, left_on e right_on ao mesmo tempo, se for, retorna um erro
+    if on != None and left_on != None and right_on != None:
+        return "Erro: Pode passar um valor apenas em on OU left_on e right_on, nunca a combinação de ambos"
+
+    # Verifica se o comprimento de left_on e right_on são iguais, caso não for, retorna um erro
+    if left_on != None and right_on != None and len(left_on) != len(right_on):
+        return "Erro: left_on e right_on devem possuir a mesma quantidade de colunas"
+
+    # Verifica se foram passados valores em on, left_on e right_on juntamente com left_index = True e right_index = True
+    if (left_index == True or right_index == True) and (on != None or left_on != None or right_on != None):
+        return "Erro: Pode passar um valor apenas em on/left_on/right_on OU left_index/right_index, nunca a combinação de ambos"
+
+    # Verifica se left_index é True e right_index False e vice-versa, caso for, retorna um erro
+    if (left_index == True and right_index == False) or (left_index == False and right_index == True):
+        return "Erro: Ambos os parâmetros left_index e right_index devem ser verdadeiros se ao menos um for informado como verdadeiro"
+
+    # Verifica se os tipos de cada coluna correspondem
+    if left_on != None and right_on != None:
+        for i in range(len(left_on)):
+            if type(left[0][col_l.index(left_on[i])]) != type(right[0][col_r.index(right_on[i])]):
+                return "Erro: Não é possível realizar a junção de valores de tipos diferentes"
+
+    # Verifica se o argumento de indicator não é bool e nem String, se não for, retorna um erro
+    if not isinstance(indicator, bool) and isinstance(indicator, str):
+        return "Erro: O argumento de indicator aceita apenas valores de tipo booleano ou String"
+
+    """ ------------------------------------------------- """
+
+    if copy == True:
+        df_result = []
+        col_result = []
+        ind_result = []
+    else:
+        df_result = left
+        col_result = col_l
+        ind_result = ind_l
+
+    # Caso on=None, left_on=None e right_on=None, o programa deverá encontrar as colunas em comum dos dois DataFrames
+    if how == 'cross' and on == None and left_on == None and right_on == None:
+        on = []
+
+        # Percorre as colunas de left
+        for i in range(len(col_l)):
+
+            # Verifica se a coluna está presente no outro DataFrame
+            if col_l[i] in col_r:
+                on.append(col_l[i])
+
+
+    """ ================ SUFIXOS ================ """
+
+    # Verifica se há colunas com nomes iguais, caso haja coloca o sufixo definido em suffixes
+    for i in range(len(col_l)):
+
+        if col_l[i] in col_r:
+            col_l = col_l.copy()
+            col_r = col_r.copy()
+
+            if suffixes[0] == None and suffixes[1] == None:
+                return "Erro: Há coluna(s) com nomes iguais porém sem um sufixo especificado"
+            if suffixes[1] != None and (right_on == None or not col_l[i] in right_on or (col_l[i] in right_on and not col_l[i] in left_on)):
+                col_r[col_r.index(col_l[i])] = str(col_r[col_r.index(col_l[i])]) + str(suffixes[1])
+            if suffixes[0] != None and (left_on == None or not col_l[i] in left_on or (col_l[i] in left_on and not col_l[i] in right_on)):
+                col_l[i] = str(col_l[i]) + str(suffixes[0])
+
+    """ ----------------------------------------- """
+
+    # Verifica se left_index=True e right_index=True
+    # Se for, realizará a mescla a partir dos indexes, em que apenas juntará as colunas quando estiver presente
+    # em ambos os DataFrames
+    if left_index == True and right_index == True:
+
+        col_result = col_l + col_r
+
+        # Percorre os indexes do primeiro DataFrame
+        for i in range(len(ind_l)):
+            linha = []
+
+            if ind_l[i] in ind_r: # Verifica se aquele index está presente nos indexes do outro DataFrame
+                ind = ind_r.index(ind_l[i])
+                ind_result.extend([ind_l[i]])
+
+                for j in range(len(col_result)):
+                    if col_result[j] in col_l:
+                        linha.extend([left[i][col_l.index(col_result[j])]])
+                    elif col_result[j] in col_r:
+                        linha.extend([right[ind][col_r.index(col_result[j])]])
+
+            if len(linha) != 0:
+                df_result.extend([linha])
+
+        return df_result, col_result, ind_result
+
+
+    """ ================ COLUNAS ================ """
+
+    for i in range(len(col_l)): # Adiciona as colunas de left ao resultado
+        if not col_l[i] in col_result:
+            col_result.extend([col_l[i]])
+
+    for i in range(len(col_r)): # Adiciona as colunas de right ao resultado
+        if not col_r[i] in col_result:
+            col_result.extend([col_r[i]])
+
+    if indicator == True: # Se True troca o valor de indicator para o nome padrão
+        indicator = "_merge"
+
+    if indicator != False and isinstance(indicator, str): # Se String adiciona uma nova coluna com o nome armazenado em indicator
+        col_result.extend([indicator])
+
+    """ ----------------------------------------- """
+
+
+    """ =========== PARÂMETROS DE HOW =========== """
+
+    lista_aux = []
+
+    # Verifica o argumento de how
+    if how == 'outer': # Se outer, então será incluído ao resultado todas as linhas de ambos os DataFrames
+
+        for i in range(len(left)): # Percorre o primeiro DataFrame (left)
+            linha = []
+            cont = 0
+
+            for j in range(len(right)): # Percorre o segundo DataFrame (right)
+
+                if ver_correspondencia(left[i], col_l, right[j], col_r, left_on, right_on, suffixes):
+                    ind_result.extend([ind_r[j]]) # Adiciona o index ao ind_result para salvar as linhas do segundo DataFrame que já
+                                                # foram adicionados ao resultado, assim evitando possíveis repetições
+
+                    lista_aux.extend([ind_l[i]]) # Utilizado para auxiliar na verificação de validate juntamente com ind_result
+
+                    for k in range(len(col_l)):
+                        linha.extend([left[i][k]])
+
+                    for k in range(len(col_r)):
+                        if not col_r[k] in right_on:
+                            linha.extend([right[j][k]])
+
+                else:
+                    cont += 1
+
+                if len(linha) != 0:
+                    if isinstance(indicator, str): # Adiciona o indicador de "both", pois se a linha tiver comprimento maior que 0
+                                                   # significa que houve correspondência nas chaves
+                        linha.extend(["both"])
+
+                    df_result.extend([linha])
+                    linha = []
+
+            if cont == len(right):
+                linha = [None]*len(col_result)
+
+                for j in range(len(col_result)):
+                    if col_result[j] in col_l:
+                        linha[j] = left[i][col_l.index(col_result[j])]
+                    else:
+                        linha[j] = "NaN"
+
+                if isinstance(indicator, str): # Adiciona o indicador de "left_only", pois se o contador (cont) for igual a quantidade
+                                               # de linhas do segundo DataFrame (right) significa que não houve nenhuma correspondência
+                                               # nas chaves da linha i do primeiro DataFrame com todas as linhas do outro DataFrame
+                    linha.extend(["left_only"])
+
+                df_result.extend([linha])
+
+        for i in range(len(ind_r)):
+
+            if not ind_r[i] in ind_result:
+                linha = [None]*len(col_result)
+
+                for j in range(len(col_result)):
+                    if col_result[j] in col_r:
+                        linha[j] = right[i][col_r.index(col_result[j])]
+                    else:
+                        linha[j] = "NaN"
+
+                if isinstance(indicator, str): # Adiciona o indicador de "right_only", pois se o index da linha i do segundo DataFrame
+                                               # não estiver na lista de ind_result, significa que essa linha ainda não foi adicionada ao
+                                               # resultado e portanto não apresenta nenhuma correspondência de chave com as linhas do
+                                               # primeiro DataFrame
+                    linha.extend(["right_only"])
+
+                df_result.extend([linha])
+
+    elif how == 'inner': # Se inner, então será incluído apenas as linhas que apresentam correspondência dos dois DataFrames
+
+        for i in range(len(left)): # Percorre o primeiro DataFrame (left)
+            linha = []
+
+            for j in range(len(right)): # Percorre o segundo DataFrame (right)
+
+                if ver_correspondencia(left[i], col_l, right[j], col_r, left_on, right_on, suffixes):
+                    ind_result.extend([ind_r[j]]) # Adiciona o index ao ind_result para salvar as linhas do segundo DataFrame que já
+                                                # foram adicionados ao resultado, assim evitando possíveis repetições
+
+                    lista_aux.extend([ind_l[i]]) # Utilizado para auxiliar na verificação de validate juntamente com ind_result
+
+                    for k in range(len(col_l)):
+                        linha.extend([left[i][k]])
+
+                    for k in range(len(col_r)):
+                        if not col_r[k] in right_on:
+                            linha.extend([right[j][k]])
+
+                if len(linha) != 0:
+
+                    if isinstance(indicator, str): # Adiciona o indicador de "both" visto que 'inner' apenas incluí linhas em
+                                                   # que as chaves correspondem
+                        linha.extend(["both"])
+                        extend
+                    df_result.extend([linha])
+                    linha = []
+
+    elif how == 'cross': # Se cross, será criado o produto cartesiano
+
+        for i in range(len(left)): # Percorre o primeiro DataFrame
+            for j in range(len(right)): # Percorre o segundo DataFrame
+                ind_result.extend([ind_r[j]]) # Adiciona o index ao ind_result para salvar as linhas do segundo DataFrame que já
+                                         # foram adicionados ao resultado, assim evitando possíveis repetições
+
+                lista_aux.extend([ind_l[i]]) # Utilizado para auxiliar na verificação de validate juntamente com ind_result
+
+                linha = []
+                linha = left[i]+right[j] # Compõe uma linha pela concatenação da linha i do primeiro DataFrame com
+                                         # uma linha j do segundo DataFrame
+
+                if isinstance(indicator, str): # Adiciona o indicador de "both" visto que 'cross' é a "mistura" de linhas
+                                               # do primeiro DataFrame com as do segundo
+                    linha.extend(["both"])
+
+                df_result.extend([linha])
+
+    else: # Se left ou right, mantêm as linhas do primeiro/segundo DataFrame e adiciona os dados do outro quando
+          # houver correspondência
+
+        if how == 'left':
+            d1 = left
+            d2 = right
+
+            c1 = col_l
+            c2 = col_r
+
+            i1 = ind_l
+            i2 = ind_r
+
+            lo = left_on
+            ro = right_on
+
+            suf = [suffixes[0], suffixes[1]]
+
+            idt = "left_only"
+
+        else:
+            d1 = right
+            d2 = left
+
+            c1 = col_r
+            c2 = col_l
+
+            i1 = ind_r
+            i2 = ind_l
+
+            lo = right_on
+            ro = left_on
+
+            suf = [suffixes[1], suffixes[0]]
+
+            idt = "right_only"
+
+        for i in range(len(d1)): # Percorre o primeiro DataFrame
+            linha = []
+            cont = 0
+
+            for j in range(len(d2)): # Percorre o segundo DataFrame
+                if ver_correspondencia(d1[i], c1, d2[j], c2, lo, ro, suf):
+                    ind_result.extend([i2[j]]) # Adiciona o index ao ind_result para salvar as linhas do segundo DataFrame que já
+                                                # foram adicionados ao resultado, assim evitando possíveis repetições
+
+                    lista_aux.extend([i1[i]]) # Utilizado para auxiliar na verificação de validate juntamente com ind_result
+
+                    if how == 'left':
+
+                        for k in range(len(col_l)):
+                            linha.extend([left[i][k]])
+
+                        for k in range(len(col_r)):
+                            if not col_r[k] in right_on:
+                                linha.extend([right[j][k]])
+
+                    else:
+
+                        for k in range(len(c2)):
+                            if not c2[k] in ro:
+                                linha.extend([d2[j][k]])
+
+                        for k in range(len(c1)):
+                            linha.extend([d1[i][k]])
+
+                else:
+                    cont += 1
+
+                if len(linha) != 0:
+
+                    if isinstance(indicator, str):
+                        linha.extend(["both"])
+
+                    df_result.extend([linha])
+                    linha = []
+
+            if cont == len(d2):
+                linha = [None]*len(col_result)
+
+                for j in range(len(col_result)):
+                    if col_result[j] in c1:
+                        linha[j] = d1[i][c1.index(col_result[j])]
+                    else:
+                        linha[j] = "NaN"
+
+                if isinstance(indicator, str):
+                    linha.extend([idt])
+
+                df_result.extend([linha])
+
+    """ ---------------------------------------------- """
+
+
+    """ ==================== SORT ==================== """
+
+    # Se sort=True ou how='outer', reorganiza o DataFrame em ordem lexicográfica por meio do Bubble Sort
+    if sort == True or how == 'outer':
+
+        for i in range(len(df_result)):
+            for j in range(len(df_result)-1-i):
+
+                if ver_maior(df_result[i], df_result[j+1], col_result, col_l, suffixes):
+                    aux = df_result[i]
+                    df_result[i] = df_result[j+1]
+                    df_result[j+1] = aux
+
+    """ ---------------------------------------------- """
+
+
+    """ ================== VALIDATE ================== """
+
+    if validate != None:
+        aux_1 = 0
+        aux_2 = 0
+
+        for i in range(len(lista_aux)):
+            aux_1 += lista_aux.count(lista_aux[i])-1
+
+        for i in range(len(ind_result)):
+            aux_2 += ind_result.count(ind_result[i])-1
+
+        if validate == "one_to_one" or validate == "1:1":
+            if aux_1 != 0 and aux_2 != 0:
+                return "Erro: As chaves de junção não são únicas em ambos os conjuntos de dados"
+            elif aux_1 != 0:
+                return "Erro: As chaves de junção não são únicas no primeiro conjunto de dados"
+            elif aux_2 != 0:
+                return "Erro: As chaves de junção não são únicas no segundo conjunto de dados"
+
+        elif validate == "one_to_many" or validate == "1:m":
+            if aux_1 != 0:
+                return "Erro: As chaves de junção não são únicas no primeiro conjunto de dados"
+
+        elif validate == "many_to_one" or validate == "m:1":
+            if aux_2 != 0:
+                return "Erro: As chaves de junção não são únicas no segundo conjunto de dados"
+
+        elif validate == "many_to_many" or validate == "m:m": # Não resulta em nenhuma verificação
+            aux_1 = 0
+            aux_2 = 0
+
+        else:
+            return "Erro: palavra-chave '" + str(validate) + "' desconhecida" # Melhorar
+
+    """ ---------------------------------------------- """
+
+
+    """ ================== INDEXES ================== """
+
+    if left_index == False and right_index == False:
+        ind_result = []
+
+        for i in range(len(df_result)):
+            ind_result.extend([i])
+
+    """ --------------------------------------------- """
+
+    # Refaz os indexes de maneira sequencial
+
+    return df_result, col_result, ind_result
+
+def df_filtrado(df, col, ind, mask):
+
+    """
+    Função que recebe um máscara (lista com valores do tipo bool), que indica qual linha será filtrada
+    do DataFrame
+    Seus parâmetros são:
+     - df: Matriz com os dados (DataFrame) que serão filtrados
+     - col: Lista com os rótulos das colunas do DataFrame
+     - ind: Lista com os indexes das linhas do DataFrame
+     - mask: Lista com valores do tipo bool, no qual cada elemento representa uma respectiva linha do
+       DataFrame, indicando qual linha será mantida (True) e qual será "removida" (False)
+    Retorna: Um DataFrame (df, col, ind) com as linhas filtradas
+    """
+
+    df_result = []
+    col_result = col.copy()
+    ind_result = []
+
+    for i in range(len(mask)):
+
+        if mask[i]:
+            df_result.append(df[i])
+            ind_result.append(ind[i])
+
+    return df_result, col_result, ind_result
+
+def eval_expr(df, col, ind, node):
+
+    """ FUNÇÃO ESTÁ FUNCIONANDO (só não sei como)
+    Função recursiva que avalia uma expressão
+    Seus parâmetros são:
+     - df: Matriz com os dados (DataFrame) que serão filtrados
+     - col: Lista com os rótulos das colunas do DataFrame
+     - ind: Lista com os indexes das linhas do DataFrame
+     - node: Uma expressão/nó que será avaliada para efetuar as respectivas operações
+    Retorna: Uma "máscara" (lista com valores do tipo bool, que indica qual linha do DataFrame será
+    filtrada)
+
+    """
+
+    if not isinstance(node, ast.Expression):
+        node = ast.parse(node, mode='eval')
+
+    dicionario = {}
+
+    for c in range(len(col)):
+        coluna = []
+
+        for i in range(len(df)):
+            coluna.append(df[i][c])
+
+        dicionario.update({col[c]:coluna})
+
+    # Ambiente com variáveis disponíveis
+    env = {
+        'df': dicionario,  # Simula o DataFrame
+        **dicionario  # Adiciona acesso direto às colunas como variáveis
+    }
+
+    # Mapeamento dos operadores
+    ops = {
+        # Comparações
+        ast.Gt: operator.gt,        # >
+        ast.Lt: operator.lt,        # <
+        ast.GtE: operator.ge,        # >=
+        ast.LtE: operator.le,        # <=
+        ast.Eq: operator.eq,         # ==
+        ast.NotEq: operator.ne,      # !=
+
+        # Operadores binários (soma, subtração, etc.)
+        ast.Add: operator.add,       # +
+        ast.Sub: operator.sub,       # -
+        ast.Mult: operator.mul,      # *
+        ast.Div: operator.truediv,   # /
+        ast.FloorDiv: operator.floordiv, # //
+        ast.Mod: operator.mod,       # %
+
+        # Operadores booleanos
+        ast.And: operator.and_,      # and (lógico)
+        ast.Or: operator.or_,        # or (lógico)
+        ast.BitAnd: operator.and_,   # &
+        ast.BitOr: operator.or_,     # |
+
+        # Outros
+        ast.Not: operator.not_,      # not
+        ast.USub: operator.neg,      # - (unário negativo)
+        ast.UAdd: operator.pos,      # + (unário positivo)
+
+        # Subscripting
+        ast.Subscript: lambda val, key: val[key],
+
+        # Nomes e carregamento
+        ast.Name: lambda node: env[node.id],
+        ast.Load: lambda _: None
+    }
+
+    if isinstance(node, ast.Expression):
+        return eval_expr(df, col, ind, node.body)
+
+    elif isinstance(node, ast.Compare): # Para comparações
+        left = eval_expr(df, col, ind, node.left)
+        for op, comp in zip(node.ops, node.comparators):
+            right = eval_expr(df, col, ind, comp)
+
+            # Verificar se a comparação envolve uma lista (coluna) ou um valor fixo (inteiro)
+            if isinstance(left, list) and isinstance(right, list):  # Comparação entre listas (colunas)
+                left = [ops[type(op)](l, r) for l, r in zip(left, right)]
+            elif isinstance(left, list):  # Comparação de lista com valor fixo
+                left = [ops[type(op)](l, right) for l in left]
+            elif isinstance(right, list):  # Comparação de valor fixo com lista
+                left = [ops[type(op)](left, r) for r in right]
+            else:  # Comparação entre valores individuais
+                left = ops[type(op)](left, right)
+
+            if isinstance(left, list):
+                return df_filtrado(df, col, ind, left)
+
+        return left
+
+    elif isinstance(node, ast.BoolOp):
+        values = [eval_expr(df, col, ind, v) for v in node.values]
+        return ops[type(node.op)](values[0], values[1])
+
+    elif isinstance(node, ast.BinOp):  # Para & ou | entre listas
+        left = eval_expr(df, col, ind, node.left)
+        right = eval_expr(df, col, ind, node.right)
+
+        if isinstance(left, list) and isinstance(right, list):  # Para listas (colunas)
+            return [ops[type(node.op)](l, r) for l, r in zip(left, right)]
+        elif isinstance(left, list):  # Para operação de lista com valor fixo
+            return [ops[type(node.op)](l, right) for l in left]
+        elif isinstance(right, list):  # Para operação de valor fixo com lista
+            return [ops[type(node.op)](left, r) for r in right]
+        else:  # Para valores individuais
+            return ops[type(node.op)](left, right)
+
+    elif isinstance(node, ast.Name):  # Retorna a variável ou coluna
+        return env[node.id]
+
+    elif isinstance(node, ast.Constant):  # Se for uma constante literal (string, número, etc)
+        return node.value
+
+    elif isinstance(node, ast.Subscript):  # Modificado para lidar com df['A']
+        val = eval_expr(df, col, ind, node.value)
+        key = eval_expr(df, col, ind, node.slice)
+        return val[key]
+
+    elif isinstance(node, ast.Index):  # para versões < Python 3.9
+        return eval_expr(df, col, ind, node.value)
+
+    elif isinstance(node, ast.Slice):
+        return slice(eval_expr(df, col, ind, node.lower), eval_expr(df, col, ind, node.upper))
+
+    elif isinstance(node, ast.Str):  # Compatibilidade com strings
+        return node.s
+
+    else:
+        raise TypeError(f"Unsupported type: {type(node)}")
+
+def compare_columns(df, col, ind, col_1, col_2, op):
+
+    """
+    Função que compara os valores de duas colunas diferentes
+    Seus parâmetros são:
+     - df: Matriz com os valores do DataFrame
+     - col: Lista com os rótulos das colunas
+     - ind: Lista com os indexes das linhas
+     - col_1: Primeira coluna
+     - col_2: Segunda coluna, que será comparada com a primeira
+     - op: A comparação que será realizada
+    Retorna: Uma DataFrame com as linhas filtradas a partir do específicado nos argumentos
+    """
+
+    operacoes = ('==', '!=', '>', '>=', '<', '<=')
+
+    df_result = []
+    ind_result = []
+
+    """ ================== VERIFICAÇÕES ================== """
+
+    if not col_1 in col:
+        return "Erro: Coluna " + str(col_1) + " não encontrada"
+
+    if not col_2 in col:
+        return "Erro: Coluna " + str(col_2) + " não encontrada"
+
+    if not op in operacoes:
+        return "Erro: Operação não reconhecida"
+
+    """ ------------------------------------------------- """
+
+    oper = operacoes[operacoes.index(op)]
+    c1 = col.index(col_1)
+    c2 = col.index(col_2)
+
+    for i in range(len(ind)):
+        adic = False # Variável utilizada para saber se será adicionada a linha ao resultado
+
+        v1 = df[i][c1]
+        v2 = df[i][c2]
+
+        if oper == '==' and v1 == v2:
+            adic = True
+        elif oper == '!=' and v1 != v2:
+            adic = True
+        elif oper == '>' and v1 > v2:
+            adic = True
+        elif oper == '>=' and v1 >= v2:
+            adic = True
+        elif oper == '<' and v1 < v2:
+            adic = True
+        elif oper == '<=' and v1 <= v2:
+            adic = True
+
+        if adic:
+            df_result.append(df[i])
+            ind_result.append(ind[i])
+
+    return df_result, col, ind_result
+
+def isin(df, col, ind, valores, col_v=None, ind_v=None, value_return='default'):
+
+    """
+    Função que filtra por valores específicos
+    Seus parâmetros são:
+     - df: Matriz com os valores que serão filtrados
+     - col: Lista com os rótulos das colunas
+     - ind: Lista com os indexes das linhas
+     - valores: Lista/Dicionário/DataFrame/Series que será utilizado como o parâmetro de filtragem
+     - col_v: Lista com os rótulos das colunas de 'valores'
+     - ind_v: Lista com os indexes das linhas de 'valores'
+     - value_return: Define se será retornado um DataFrame com os valores no tipo 'bool' (True caso corresponda
+       e False caso contrário) ou com os valores padrão ('default') do DataFrame
+    Retorna: Um DataFrame com valores padrão ou bool, que específica os valores que serão "mantidos" como nan (Not a Number)
+    ou True
+
+    Parâmetro value_return foi definido para simular o efeito de colocar o DataFrame com os valores do tipo bool
+    nele mesmo ( df[df.isin([1, 3])] )
+    """
+
+    if value_return != 'default' and value_return != 'bool':
+        return "Erro: Argumento de 'value_return' não reconhecido, informe um valor válido ('default', 'bool')"
+
+    df_copy = []
+
+    for i in range(len(df)):
+        df_copy.append([False]*len(df[i]))
+
+    if isinstance(valores, dict): # Dicionário ============================
+
+        chaves = list(valores.keys()) # Pega a lista das chaves do dicionário (converte em lista, pois a função keys()
+                                    # retorna um objeto do tipo dict_keys)
+
+        for k in range(len(chaves)):
+
+            if chaves[k] in col:
+                c = col.index(chaves[k])
+
+                for i in range(len(df)):
+                    if df[i][c] in valores.get(chaves[k]):
+                        df_copy[i][c] = True
+                    else:
+                        df_copy[i][c] = False
+
+    else:
+
+        if col_v == None and ind_v == None: # Lista ========================
+            for i in range(len(df)):
+                for j in range(len(df[i])):
+
+                    # Verifica se cada elemento do DataFrame corresponde a um dos valores da lista
+                    if df[i][j] in valores: # Se sim, define como True
+                        df_copy[i][j] = True
+                    else: # Caso contrário, define como False
+                        df_copy[i][j] = False
+
+        elif col_v != None: # DataFrame ====================================
+
+            if ind_v == None:
+                return "Erro: Informe os indexes do DataFrame"
+
+            else:
+                for i in range(len(df)):
+                    for j in range(len(df[i])):
+
+                        if (ind[i] in ind_v) and (col[j] in col_v):
+                            l = ind_v.index(ind[i])
+                            c = col_v.index(col[j])
+
+                            if df[i][j] == valores[l][c]:
+                                df_copy[i][j] = True
+                            else:
+                                df_copy[i][j] = False
+
+                        else:
+                            df_copy[i][j] = False
+
+        elif col_v == None and ind_v != None: # Series =====================
+
+            for i in range(len(df)):
+
+                if ind[i] in ind_v: # Verifica se o index i está presente na lista de indexes ind_v
+                    l = ind_v.index(ind[i])
+
+                    for j in range(len(df[i])):
+                        if df[i][j] == valores[l]:
+                            df_copy[i][j] = True
+                        else:
+                            df_copy[i][j] = False
+
+    if value_return == 'default':
+
+        for i in range(len(df_copy)):
+            for j in range(len(df_copy[i])):
+
+                if df_copy[i][j] == True:
+                    df_copy[i][j] = df[i][j]
+                else:
+                    df_copy[i][j] = float('nan')
+
+    return df_copy, col, ind
+
+def reset_index(df, col, ind, drop=False, inplace=False, allow_duplicates=None, names=None):
+
+    """
+    Função que reseta os indexes de um DataFrame
+    Seus parâmetros são:
+     - df: Matriz com os valores do DataFrame
+     - col: Lista com os rótulos das colunas do DataFrame
+     - ind: Lista com os indexes das linhas do DataFrame
+     - drop: Define se os indexes antigos serão removidos por completo, se for False serão mantidos como uma nova coluna
+     - inplace: Determina se a operação será realizada no DataFrame original ou em uma cópia
+     - allow_duplicates: Valor bool que define se será permitido ou não a repetição de rótulos nas colunas
+     - names: Nome da coluna adicional gerada pelo drop=False
+    Retorna: DataFrame com os indexes resetados
+    """
+
+    # Verifica o argumento de inplace
+    if inplace == False: # Se False, a operação será realizada a partir de uma cópia
+        df_result = copy.deepcopy(df)
+        col_result = copy.deepcopy(col)
+        ind_result = copy.deepcopy(ind)
+
+    else: # Caso contrário, a operação será realizada a partir do DataFrame original
+        df_result = df
+        col_result = col
+        ind_result = ind
+
+    # Verifica o argumento de drop e names
+    if drop == False: # Se drop for falso, insere-se uma nova coluna com os indexes antigos
+
+        if names == None: # Verifica o argumento de names, se for igual None, utiliza-se o nome padrão (index)
+            nome = "index"
+
+            if nome in col_result: # Verifica se o rótulo index já está presente no DataFrame, se já estiver então
+                                   # utiliza-se outro
+                aux = True
+                num = 0
+
+                while aux: # Verifica se o rótulo "level_<número>" já está presente, de forma a incrementar o número
+                           # até que encontre-se um que não está presente no DataFrame
+
+                    if not "level_"+str(num) in col_result:
+                        nome = "level_"+str(num)
+                        aux = False
+
+                    num += 1
+
+            col_result.insert(0, nome)
+
+        else: # Caso contrário, utiliza-se o valor informado no parâmetro names
+            col_result.insert(0, names)
+
+
+        for i in range(len(df_result)):
+            df_result[i].insert(0, ind[i]) # Insere no DataFrame os antigos indexes como uma coluna nova adicional
+
+    # Verifica o argumento de allow_duplicates, se False não será permitido a existência de duas ou mais colunas de
+    # mesmo rótulo, de forma a retornar um erro caso haja
+    if allow_duplicates == False:
+        for i in range(len(col_result)):
+            for j in range(len(col_result)):
+
+                if i != j and col_result[i] == col_result[j]:
+                    return "Erro: Existe uma ou mais colunas com o rótulo '" + str(col_result[i]) + "'"
+
+    # Cria os novos indexes
+    for i in range(len(ind_result)):
+        ind_result[i] = i
+
+    return df_result, col_result, ind_result
+
+def verify_tolerance(i, labels, tolerance): # FUNÇÃO AUXILIAR
+
+    """
+    Função que verifica se um determinado index está dentro da tolerância especificada
+    Seus parâmetros são:
+     - i: Index que será verificado
+     - labels: Lista com os indexes antigos que servirá como critério
+     - tolerancia: A tolerância permitida para relacionar o index i com um index de labels
+    Retorna: A posição do index de labels se satisfazer o critério de tolerância ou -1, para caso não haja
+    correspondência
+    """
+
+    aux = None
+
+    for j in range(len(labels)):
+
+        if i <= labels[j]+tolerance and i >= labels[j]-tolerance:
+
+            if aux == None or abs(labels[j]-i) < aux:
+                aux = labels[j]
+
+    if aux != None:
+        return labels.index(aux)
+    else:
+        return -1
+
+def fill_method(df, lista_indices, axis, method, limit): # FUNÇÃO AUXILIAR
+
+    """
+    Função que recebe um DataFrame com brechas (NaN) e as preenche de acordo com as especificações de método,
+    limite, eixo e as linhas/colunas que deverão ser completadas
+    Seus parâmetros são:
+     - df: DataFrame no qual será realizado a operação de preenchimento
+     - lista_indices: Lista com os indexes das linhas/colunas que serão preenchidas
+     - axis: Eixo que será realizado a operação
+     - method: Método de preenchimento
+     - limit: Limite para quantas brechas um valor poderá preencher
+    Retorna: Nada
+    """
+
+    nan = (float("nan"), "NaN", "nan", None)
+
+    if limit != None:
+        limit -= 1
+
+    if method == 'pad' or method == 'ffill':
+
+        if axis == 0:
+            for j in range(len(df[0])):
+                obs = None
+                cont = 0
+
+                for i in range(len(df)):
+                    if (df[i][j] in nan or (isinstance(df[i][j], float) and numpy.isnan(df[i][j]))) and i in lista_indices and obs != None:
+                        if limit == None or (limit != None and cont < limit):
+                            df[i][j] = obs
+                            cont += 1
+                    elif not df[i][j] in nan and not (isinstance(df[i][j], float) and numpy.isnan(df[i][j])):
+                        obs = df[i][j]
+                        cont = 0
+
+        elif axis == 1: # A ser testado
+            for i in range(len(df)):
+                obs = None
+                cont = 0
+
+                for j in range(len(df[i])):
+                    if (df[i][j] in nan or (isinstance(df[i][j], float) and numpy.isnan(df[i][j]))) and j in lista_indices and obs != None:
+                        if limit == None or (limit != None and cont < limit):
+                            df[i][j] = obs
+                            cont += 1
+                    elif not df[i][j] in nan and not (isinstance(df[i][j], float) and numpy.isnan(df[i][j])):
+                        obs = df[i][j]
+                        cont = 0
+
+    elif method == 'backfill' or method == 'bfill':
+        if axis == 0:
+            for j in range(len(df[0])):
+                obs = None
+                cont = 0
+
+                for i in range(len(df)-1, -1, -1):
+                    if (df[i][j] in nan or (isinstance(df[i][j], float) and numpy.isnan(df[i][j]))) and i in lista_indices and obs != None:
+                        if limit == None or (limit != None and cont < limit):
+                            df[i][j] = obs
+                            cont += 1
+                    elif not df[i][j] in nan and not (isinstance(df[i][j], float) and numpy.isnan(df[i][j])):
+                        obs = df[i][j]
+                        cont = 0
+
+        elif axis == 1:
+            for i in range(len(df)):
+                obs = None
+                cont = 0
+
+                for j in range(len(df[i])-1, -1, -1):
+                    if (df[i][j] in nan or (isinstance(df[i][j], float) and numpy.isnan(df[i][j]))) and j in lista_indices and obs != None:
+                        if limit == None or (limit != None and cont < limit):
+                            df[i][j] = obs
+                            cont += 1
+                    elif not df[i][j] in nan and not (isinstance(df[i][j], float) and numpy.isnan(df[i][j])):
+                        obs = df[i][j]
+                        cont = 0
+
+    elif method == 'nearest':
+        if axis == 0:
+            for j in range(len(df[0])):
+                dict_limit = {}
+
+                for i in range(len(df)):
+                    k = 1
+                    aux = True
+                    obs = None
+
+                    while k < len(df) and aux:
+                        if i+k < len(df) and not df[i+k][j] in nan and not (isinstance(df[i+k][j], float) and numpy.isnan(df[i+k][j])):
+                            obs = df[i+k][j]
+                        elif i-k >= 0 and not df[i-k][j] in nan and not (isinstance(df[i-k][j], float) and numpy.isnan(df[i-k][j])):
+                            obs = df[i-k][j]
+
+                        if obs != None and not obs in dict_limit.keys():
+                            dict_limit.update({obs:0})
+
+                        if (df[i][j] in nan or (isinstance(df[i][j], float) and numpy.isnan(df[i][j]))) and i in lista_indices and obs != None:
+                            if limit == None or (limit != None and dict_limit.get(obs) < limit):
+                                df[i][j] = obs
+                                dict_limit[obs] += 1
+                                aux = False
+                            else:
+                                aux = False
+                        k += 1
+        elif axis == 1:
+            for i in range(len(df)):
+                dict_limit = {}
+
+                for j in range(len(df[i])):
+                    k = 1
+                    aux = True
+                    obs = None
+
+                    while k < len(df[i]) and aux:
+                        if j+k < len(df[i]) and not df[i][j+k] in nan and not (isinstance(df[i][j+k], float) and numpy.isnan(df[i][j+k])):
+                            obs = df[i][j+k]
+                        elif j-k >= 0 and not df[i][j-k] in nan and not (isinstance(df[i][j-k], float) and numpy.isnan(df[i][j-k])):
+                            obs = df[i][j-k]
+
+                        if obs != None and not obs in dict_limit.keys():
+                            dict_limit.update({obs:0})
+
+                        if (df[i][j] in nan or (isinstance(df[i][j], float) and numpy.isnan(df[i][j]))) and j in lista_indices and obs != None:
+                            if limit == None or (limit != None and dict_limit.get(obs) < limit):
+                                df[i][j] = obs
+                                dict_limit[obs] += 1
+                                aux = False
+                            else:
+                                aux = False
+                        k += 1
+
+def reindex(df, col, ind, labels=None, index=None, columns=None, axis=None, method=None, copy_p=True, fill_value=float("nan"), limit=None, tolerance=0):
+
+    """
+    Função que altera ou adapta os indexes de um DataFrame seguindo uma lógica de preenchimento.
+    Seus parâmetros são:
+     - df: Matriz com os valores do DataFrame
+     - col: Lista com os rótulos das colunas
+     - ind: Lista com os indexes das linhas
+     - labels: Lista com os novos identificadores das colunas/linhas
+     - index: Lista com os novos indexes das linhas
+     - columns: Lista com os novos rótulos das colunas
+     - axis: Define o eixo da operação, onde 0 indica que a operação será realizada a partir das linhas
+       e 1 a partir das colunas
+     - method: Determina o método de preenchimento para as brechas (elementos sem valores) do DataFrame
+       reindexado, no qual:
+        - None: Não aplicará nenhum tipo de preenchimento
+        - 'pad'/'ffill': Replicará o último valor válido até encontrar outro valor
+        - 'backfill'/'bfill': Utilizará o próximo valor válido que encontrar como preenchimento
+        - 'nearest': Aplicará o valor válido mais próximo que encontrar
+     - copy_p: Define se a operação será realizada a partir do DataFrame original ou não, nesse caso em uma cópia
+     - fill_value: Valor que será colocado nos elementos que não apresentava valores na indexação prévia
+     - limit: Número inteiro que restringirá a quantidade máxima de elementos consecutivos que serão preenchidos
+       a partir de um valor válido
+     - tolerance: Específica a tolerância máxima permitida para o alinhamento dos indexes ao efetuar a
+       reindexação
+
+    OBS: Deve-se utilizar apenas 1 (um) método para determinar o eixo da operação, sendo este apenas com labels
+    e axis, ou com index/columns
+
+    OBS 2: Para que a operação seja realizada no DataFrame original, a lista com os novos rótulos/indexes deve
+    apresentar a mesma quantidade de elementos do original e copy deve estar assinalado com False
+    """
+
+    """ ================= VERIFICAÇÕES DE ERROS ================= """
+
+    if (labels != None or axis != None) and (index != None or columns != None):
+        return "Erro: Informe apenas uma das maneiras de chamada (labels e axis) ou (index/columns)"
+    if index != None and columns != None:
+        return "Erro: Não é possível especificar index e columns ao mesmo tempo"
+    if labels != None and axis == None:
+        return "Erro: Informe o eixo de operação (axis=0 ou axis=1)"
+    if limit != None and not str(limit).isnumeric():
+        return "Erro: Informe um limite válido (valor inteiro)"
+    if isinstance(tolerance, list) or isinstance(tolerance, tuple):
+        if ((axis == 0 or axis == 1) and len(tolerance) != len(labels)) or (index != None and len(tolerance) != len(index)) or (columns != None and len(tolerance) != len(columns)):
+            return "Erro: A quantidade de elementos de tolerance deve corresponder a quantidade de linhas/colunas"
+
+    """ ========================================================= """
+
+
+    """ ===================== PARÂMETRO COPY ===================== """
+
+    if index != None:
+        labels = index
+        axis = 0
+
+    elif columns != None:
+        labels = columns
+        axis = 1
+
+    if copy_p == False and ((axis == 0 and len(ind) == len(labels)) or (axis == 1 and len(col) == len(labels))):
+        df_result = df
+        col_result = col
+        ind_result = ind
+
+    else:
+        df_result = []
+
+        if axis == 0:
+            for i in range(len(labels)):
+                lista = []
+
+                for j in range(len(col)):
+                    lista.append(None)
+
+                df_result.append(lista)
+        else:
+            for i in range(len(ind)):
+                lista = []
+
+                for j in range(len(labels)):
+                    lista.append(None)
+
+                df_result.append(lista)
+
+        col_result = []
+        ind_result = []
+
+    # Cópia do DataFrame original para consultas posteriores
+    df_copy = copy.deepcopy(df)
+    col_copy = copy.deepcopy(col)
+    ind_copy = copy.deepcopy(ind)
+
+    """ ========================================================== """
+
+    lista_ind = []
+
+    """ ===== VERIFICA EIXO DA OPERAÇÃO ===== """
+
+    if axis == 0: # Linha
+        # Verifica se é realizado a partir do original ou de uma cópia do DataFrame
+        if copy_p == False and len(ind) == len(labels):
+            for i in range(len(labels)):
+                ind_result[i] = labels[i]
+
+        else:
+            ind_result = labels
+            col_result = col.copy()
+
+        for i in range(len(labels)):
+
+            if labels[i] in ind_copy:
+                indice = ind_copy.index(labels[i])
+
+                if copy_p == False and len(ind) == len(labels):
+                    for j in range(len(df_result[indice])):
+                        df_result[i][j] = df_copy[indice][j]
+
+                else:
+                    df_result[i] = df_copy[indice]
+
+            elif str(labels[i]).replace('.', '', 1).isnumeric() and tolerance != 0:
+                if isinstance(tolerance, list):
+                    t = tolerance[i]
+                else:
+                    t = tolerance
+
+                ver = verify_tolerance(labels[i], ind_copy, t)
+
+                if ver != -1: # Verifica se está dentro da tolerância permitida (-1 é False)
+
+                    if copy_p == False and len(ind) == len(labels): # Verifica se copy_p == False
+                        for j in range(len(df_result[ver])): # Se sim, então altera os valores da linha, coluna por coluna
+                            df_result[i][j] = df_copy[ver][j]
+
+                    else: # se não for uma cópia, a linha i recebe diretamente a linha
+                        df_result[i] = df_copy[ver]
+
+                else:
+                    for j in range(len(df_result[i])):
+                        df_result[i][j] = fill_value
+
+                    lista_ind.append(i)
+
+            else:
+                for j in range(len(df_result[i])):
+                    df_result[i][j] = fill_value
+
+                lista_ind.append(i)
+
+    else: # Coluna
+        # Verifica se é realizado a partir do original ou de uma cópia do DataFrame
+        if copy_p == False and len(col) == len(labels):
+            for i in range(len(labels)):
+                col_result[i] = labels[i]
+
+        else:
+            col_result = labels
+            ind_result = ind.copy()
+
+        for j in range(len(labels)):
+
+            if labels[j] in col_copy:
+                indice = col_copy.index(labels[j])
+
+                for i in range(len(df_result)):
+                    df_result[i][j] = df_copy[i][indice]
+
+            elif str(labels[j]).replace('.', '', 1).isnumeric() and tolerance != 0:
+                if isinstance(tolerance, list):
+                    t = tolerance[j]
+                else:
+                    t = tolerance
+
+                ver = verify_tolerance(labels[j], col_copy, t)
+
+                if ver != -1: # Verifica se está dentro da tolerância permitida (-1 é False)
+                    for i in range(len(df_result)):
+                        df_result[i][j] = df_copy[i][ver]
+
+                else:
+                    for i in range(len(df_result)):
+                        df_result[i][j] = fill_value
+
+                    lista_ind.append(j)
+
+            else:
+                for i in range(len(df_result)):
+                    df_result[i][j] = fill_value
+
+                lista_ind.append(j)
+
+    if method != None:
+        fill_method(df_result, lista_ind, axis, method, limit)
+
+    return df_result, col_result, ind_result
+
+def df_map(df, col, ind, func, axis=0, na_action=None, **kwargs):
+
+    """
+    Função que aplica uma função ou mais funções individualmente para cada elemento de uma DataFrame.
+    Seus parâmetros são:
+     - df: Matriz com os valores do DataFrame
+     - col: Lista com os rótulos das colunas
+     - ind: Lista com os indexes das linhas
+     - func: Objeto do tipo chamável que será aplicada em cada elemento do DataFrame
+     - axis: Eixo da aplicação das funções
+     - na_action: Define como lidar com os valores NaN (Not a Number)
+     - **kwargs: São argumento nomeados adicionais que serão utilizados na chamada da função
+    Retorna: Um DataFrame de mesmo tamanho (df, col, ind) com seus valores atualizados.
+    """
+
+    """ ============================= VERIFICAÇÕES ============================= """
+
+    if not isinstance(func, (list, dict)) and not callable(func):
+        return "Erro: o argumento de func deve ser um objeto do tipo chamável"
+
+    """ ======================================================================== """
+
+    if not isinstance(func, (list, dict)):
+        for i in range(len(df)):
+            for j in range(len(df[i])):
+                df[i][j] = func(df[i][j], **kwargs)
+
+    else:
+        if isinstance(func, list):
+            for i in range(len(df)):
+                for j in range(len(df[i])):
+                    aux = []
+
+                    for k in range(len(func)):
+                        if not callable(func[k]):
+                            return "Erro: o argumento de func deve ser um objeto do tipo chamável", None, None
+                        else:
+                            aux.append(func[k](df[i][j], **kwargs))
+
+                    df[i][j] = aux
+
+        else:
+            chaves = tuple(func.keys())
+
+            if axis == 0 or axis == 'index':
+                for j in range(len(chaves)):
+                    if not chaves[j] in col:
+                        return "Erro: Coluna " + str(chaves[j]) + " não existe!", None, None
+            elif axis == 1 or axis == 'columns':
+                for i in range(len(chaves)):
+                    if not chaves[i] in ind:
+                        return "Erro: Coluna " + str(chaves[i]) + " não existe!", None, None
+
+            for i in range(len(df)):
+                for j in range(len(df[i])):
+                    aux = []
+
+                    if axis == 0 or axis == 'index':
+                        funcoes = func.get(col[j])
+                    elif axis == 1 or axis == 'columns':
+                        funcoes = func.get(ind[i])
+
+                    if isinstance(funcoes, list):
+                        for k in range(len(funcoes)):
+                            if not callable(funcoes[k]):
+                                return "Erro: o argumento de func deve ser um objeto do tipo chamável", None, None
+                            else:
+                                aux.append(funcoes[k](df[i][j], **kwargs))
+
+                        df[i][j] = aux
+
+                    elif funcoes != None:
+                        df[i][j] = funcoes(df[i][j], **kwargs)
+
+    return df, col, ind
+
+def verificar_func(nome): # FUNÇÃO AUXILIAR
+
+    """
+    Função que verifica se existe uma função nativa do python a partir de um nome específico.
+    Seus parâmetros são:
+     - nome: String com o nome que será verificado
+    Retorna: True (1) para caso exista e False (0) para caso não exista.
+    """
+
+    return hasattr(builtins, nome) and callable(getattr(builtins, nome))
+
+def mean(x): # Função auxiliar para testagem
+    return sum(x) / len(x)
+
+def aplicar_func(lista, func=None, *args, **kwargs): # FUNÇÃO AUXILIAR
+
+    """
+    Função que aplica uma determinada função sobre uma lista.
+    Seus parâmetros são:
+     - lista: Lista sobre qual será aplicada a função
+     - func: Função a ser aplicada
+     - *args: Argumentos posicionais adicionais para a aplicação da função
+     - **kwargs: Argumentos nomeados adicionais para a aplicação da função
+    Retorna: Um único valor com o resultado da aplicação da função sobre a lista
+    """
+
+    if callable(func): # Verifica se a função é chamável
+        return func(lista, *args, **kwargs)
+
+    elif isinstance(func, str): # Verifica se é o nome da função (String)
+        if verificar_func(func): # Verifica se ela existe na integração do Python
+            return getattr(builtins, func)(lista, *args, **kwargs)
+
+        elif globals().get(func) and callable(globals().get(func)): # Verifica se a função existe no escopo global e se é chamável
+            return globals()[func](lista, *args, **kwargs)
+
+def agg(df, col, ind, func=None, axis=0, *args, **kwargs):
+
+    """
+    Função que permite a aplicação de uma ou mais operações sobre um determinado eixo (linha/coluna).
+    Seus parâmetros são:
+     - df: Matriz com os elementos do DataFrame
+     - col: Vetor com os rótulos das colunas
+     - ind: Vetor com os indexes das linhas
+     - func: Função a ser aplicada sobre as linhas/colunas
+     - axis: eixo de aplicação das funções
+     - *args: Argumentos posicionais adicionais para a aplicação da função
+     - **kwargs: Argumentos nomeados adicionais para a aplicação da função
+    Retorna: Um DataFrame com o resultado da aplicação das funções.
+    """
+
+    # Falta: comentar e realizar mais testes
+
+    """ ============================= VERIFICAÇÕES ============================= """
+
+    # Verifica se existe uma função nativa do Python ou presente no escopo global com o nome específicado
+    # Caso não exista, retorna um erro
+    if isinstance(func, str) and not verificar_func(func) and not (globals().get(func) and callable(globals().get(func))):
+        return "Erro: Não foi encontrado nenhuma função existente com o nome de " + str(func)
+
+    """ ======================================================================== """
+
+    df_result = []
+    col_result = []
+    ind_result = []
+
+    if callable(func) or isinstance(func, str): # Verifica se foi informado uma única função ou o nome de uma função
+        tam = 1 # Se sim, então será retornado um DataFrame de uma única linha
+    elif isinstance(func, list): # Verifica se foi passado uma lista de funções
+        tam = len(func) # O tamanho do resultado será relativo à quantidade de funções que foram passadas
+    elif isinstance(func, dict): # Verifica se foi passado um dicionário
+        if axis == 1 or axis == 'columns':
+            for list_f in func.values():
+                if isinstance(list_f, list):
+                    for i in range(len(list_f)):
+                        if not list_f[i] in col_result:
+                            col_result.append(list_f[i].__name__ if callable(list_f[i]) else list_f[i])
+                elif not list_f in col_result:
+                    col_result.append(list_f.__name__ if callable(list_f) else list_f)
+
+            tam = len(col_result)
+
+        elif axis == 0 or axis == 'index':
+            for list_f in func.values():
+                if isinstance(list_f, list):
+                    for i in range(len(list_f)):
+                        if not list_f[i] in ind_result:
+                            ind_result.append(list_f[i].__name__ if callable(list_f[i]) else list_f[i])
+                elif not list_f in ind_result:
+                    ind_result.append(list_f.__name__ if callable(list_f) else list_f)
+
+            tam = len(ind_result)
+
+    if axis == 1 or axis == 'columns':
+        for i in range(len(df)):
+            lista = [float('nan')]*tam
+            df_result.append(lista)
+
+    elif axis == 0 or axis == 'index':
+        for i in range(tam):
+            lista = [float('nan')]*len(df[0])
+            df_result.append(lista)
+
+    aux = []
+
+    if isinstance(func, dict):
+        dict_copy = func.copy()
+
+    if axis == 1 or axis == "columns":
+        ind_result = ind.copy()
+
+        for i in range(len(df)):
+            if callable(func):
+                if not func.__name__ in col_result:
+                    col_result.append(func.__name__)
+
+                df_result[i][col_result.index(func.__name__)] = aplicar_func(df[i], func, *args, **kwargs)
+
+            elif isinstance(func, str):
+                if not func in col_result:
+                    col_result.append(func)
+
+                df_result[i][col_result.index(func)] = aplicar_func(df[i], func, *args, **kwargs)
+
+            elif isinstance(func, list):
+                for f in range(len(func)):
+                    if callable(func[f]) and not func[f].__name__ in col_result:
+                        col_result.append(func[f].__name__)
+                    if isinstance(func[f], str) and not func[f] in col_result:
+                        col_result.append(func[f])
+
+                    df_result[i][col_result.index(func[f].__name__ if callable(func[f]) else func[f])] = aplicar_func(df[i], func[f], *args, **kwargs)
+
+            elif isinstance(func, dict):
+                funcoes = func.get(ind_result[i])
+
+                if isinstance(funcoes, list):
+                    for f in range(len(funcoes)):
+                        df_result[i][col_result.index(funcoes[f].__name__ if callable(funcoes[f]) else funcoes[f])] = aplicar_func(df[i], funcoes[f], *args, **kwargs)
+                else:
+                    df_result[i][col_result.index(funcoes.__name__ if callable(funcoes) else funcoes)] = aplicar_func(df[i], funcoes, *args, **kwargs)
+
+    elif axis == 0 or axis == 'index':
+        col_result = col.copy()
+
+        for j in range(len(df[0])):
+            for i in range(len(df)):
+                aux.append(df[i][j])
+
+            if len(aux) > 0:
+                if callable(func):
+                    if not func.__name__ in ind_result:
+                        ind_result.append(func.__name__)
+
+                    df_result[ind_result.index(func.__name__)][j] = aplicar_func(aux, func, *args, **kwargs)
+
+                elif isinstance(func, str):
+                    if not func in ind_result:
+                        ind_result.append(func)
+
+                    df_result[ind_result.index(func)][j] = aplicar_func(aux, func, *args, **kwargs)
+
+                elif isinstance(func, list):
+                    for f in range(len(func)):
+                        if callable(func[f]) and not func[f].__name__ in ind_result:
+                            ind_result.append(func[f].__name__)
+                        if isinstance(func[f], str) and not func[f] in ind_result:
+                            ind_result.append(func[f])
+
+                        df_result[ind_result.index(func[f].__name__ if callable(func[f]) else func[f])][j] = aplicar_func(aux, func[f], *args, **kwargs)
+
+                elif isinstance(func, dict):
+                    funcoes = func.get(col_result[j])
+
+                    if isinstance(funcoes, list):
+                        for f in range(len(funcoes)):
+                            df_result[ind_result.index(funcoes[f].__name__ if callable(funcoes[f]) else funcoes[f])][j] = aplicar_func(aux, funcoes[f], *args, **kwargs)
+                    else:
+                        df_result[ind_result.index(funcoes.__name__ if callable(funcoes) else funcoes)][j] = aplicar_func(aux, funcoes, *args, **kwargs)
+
+            aux = []
+
+    return df_result, col_result, ind_result
+
+def df_apply(df, col, ind, func, axis=0, raw=False, result_type=None, args=(), by_row='compat', **kwargs):
+
+    """
+    Função que permite a aplicações de funções um determinado eixo do DataFrame. Pode ser aplicado diretamente em linhas/colunas
+    ou em cada elemento individualmente.
+    Seus parâmetros são:
+     - df: DataFrame (matriz) no qual será a aplicada as funções
+     - col: Lista com os rótulos das colunas do DataFrame
+     - ind: Lista com os indexes das linhas do DataFrame
+     - func: Função ou lista/dicionário de funções a serem aplicadas
+     - axis: Eixo para a aplicação das funções
+     - raw: Define se a operação será realizada normalmente (False) ou se será a operação será realizada com objetos ndarray
+            do módulo NumPy
+     - result_type: Controla como o resultado será formatado, no qual apenas o 'broadcast' apresenta uma mudança significativa
+     - args: Tupla que recebe os argumentos de posição extras para a aplicação da função
+     - by_row: Determina como as funções serão aplicadas, por linha/coluna ou individualmente para cada elemento
+     - kwargs**: Argumentos adicionais a serem passados como argumentos nomeados para a função
+    Retorna: Um DataFrame com os resultados da aplicação das funções
+    """
+
+    if axis == 'index':
+        axis = 0
+    elif axis == 'columns':
+        axis = 1
+
+    df_result = []
+    col_result = []
+    ind_result = []
+
+    if raw:
+        for i in range(len(df)):
+            df[i] = numpy.array(df[i], dtype=object) # Transforma a linha para um ndarray do módulo NumPy
+
+    if by_row == 'compat': # Verifica qual o melhor tipo de aplicação (em série ou para cada elemento individualmente)
+        try:
+            aux = aplicar_func([1, 2, 3], func)
+            by_row = False
+        except Exception:
+            by_row = True
+
+    if by_row:
+        df_result, col_result, ind_result = df_map(df, col, ind, func, axis, **kwargs)
+    elif not by_row:
+        df_result, col_result, ind_result = agg(df, col, ind, func, axis, **kwargs)
+    else:
+        df_result, col_result, ind_result = df_map(df, col, ind, func, axis, **kwargs)
+
+    if isinstance(df_result, str):
+        return df_result
+
+    if isinstance(aplicar_func([1, 2, 3], func), (list, numpy.ndarray)):
+        if axis == 1:
+            for i in range(len(df_result)):
+                df_result[i] = df_result[i][0]
+        else:
+            df_result = df_result[0]
+
+    if not isinstance(func, (list, dict)):
+        if isinstance(aplicar_func([1, 2, 3], func), (list, numpy.ndarray)) and axis == 0:
+            temp = copy.deepcopy(df_result)
+            df_result = []
+
+            for j in range(len(temp[0])):
+                aux = []
+
+                for i in range(len(temp)):
+                    aux.append(temp[i][j])
+
+                df_result.append(aux)
+
+    if isinstance(aplicar_func([1, 2, 3], func), (list, numpy.ndarray)):
+        if axis == 0 and len(df_result) != len(df):
+            return "Erro: Formato dos valores passados é (" + str(len(df_result)) + ", " + str(len(df_result[0])) + "), porém os indexes implicam o formato ("  + str(len(df)) + ", " + str(len(df[0])) + ")"
+        elif axis == 1 and len(df_result[0]) != len(df[0]):
+            return "Erro: Formato dos valores passados é (" + str(len(df_result)) + ", " + str(len(df_result[0])) + "), porém os indexes implicam o formato ("  + str(len(df)) + ", " + str(len(df[0])) + ")"
+        else:
+            col_result = copy.deepcopy(col)
+            ind_result = copy.deepcopy(ind)
+
+    if result_type == 'broadcast':
+        if not isinstance(func, (list, dict)):
+            if not isinstance(aplicar_func([1, 2, 3], func), (list, dict, numpy.ndarray)):
+                col_result = copy.deepcopy(col)
+                ind_result = copy.deepcopy(ind)
+                valor = df_result[0][0]
+                cont = 0
+                cont_aux = 0
+
+                for i in range(len(df_result)):
+                    for j in range(len(df_result[i])):
+                        if len(df_result[i]) < len(df[i]):
+                            df_result[i].append(valor)
+
+                if len(df_result) < len(df):
+
+                    for i in range(len(df)-1):
+                        df_result.append(df_result[0])
+
+    return df_result, col_result, ind_result
+
+def ver_maior_group(l1, l2, col_result, by, as_index):
+
+    if as_index == True:
+        if isinstance(by, list):
+            for i in range(len(by)):
+                if str(l1[i]) > str(l2[i]):
+                    return True
+                else:
+                    return False
+        else:
+            if str(l1) > str(l2):
+                return True
+            else:
+                return False
+    else:
+        if isinstance(by, list):
+            for i in range(len(by)):
+
+                if by[i] in col_result:
+                    indice = col_result.index(by[i])
+
+                    if str(l1[indice]) > str(l2[indice]):
+                        return True
+                    else:
+                        return False
+        else:
+            if by in col_result:
+                indice = col_result.index(by)
+
+                if str(l1[indice]) > str(l2[indice]):
+                    return True
+                else:
+                    return False
+
+def groupby(df, col, ind, by=None, axis=0, as_index=True, sort=True, group_keys=True, dropna=True, func=None, *args, **kwargs):
+
+    """
+    Função que permite o agrupamento de dados e aplicação de funções sobre os grupos.
+    Seus parâmetros são:
+     - df: Matriz que representa os elementos de um DataFrame
+     - col: Vetor que representa os rótulos das colunas
+     - ind: Vetor que representa os indexes das linhas
+     - by: Define como os dados serão agrupados
+     - axis: Define o eixo da operação (apenas axis=0 está configurado, axis=1 foi descontinuado a partir da versão 2.1.0 do pandas)
+     - as_index: Indica se as chaves de agrupamento serão utilizados como index no DataFrame resultante ou não
+     - sort: Ordena as chaves de agrupamento, sem afetar a ordem dos elementos de cada grupo
+     - group_keys: Determina se as chaves de agrupamento serão adicionadas ao index para identificação dos grupos ao que pertencem com a aplicação de funções
+     - dropna: Define se os grupos que possuírem NaN como chave de agrupamento serão mantidos ou removidos da operação
+    Retorna: Um dicionário, com as chaves de agrupamento como chave e os indexes das linhas que fazem parte do grupo como valores associados para quando não é especificado
+    nenhuma aplicação de função. Caso contrário, seja específicado uma função, retorna-se um DataFrame
+
+    Parâmetro func, *args e **kwargs não estão na função do pandas. Foram definidas nesta função para simular a aplicação de uma função em DataFrame por agrupamento
+    """
+
+    # VERIFICAR: axis=1 e observed
+    #   axis=1 -> Deprecated - Justificar e não fazer - RESOLVIDO
+    #   observed -> Utiliza colunas/linhas do tipo Categoricals (funciona de forma similar a uma entidade criada para categoria no BD, vinculando a partir de seu ID)
+    #   by -> Aceita um objeto do tipo grouper
+    #   group_keys -> Trabalha com a multi indexação (se True e for utilizado juntamente com a função apply, inclui os nomes das chaves de agrupamento como um nível
+    #                 superior (hierárquico) no índice do resultado, mantendo ao mesmo tempo os indexes originais)
+
+    """ ========================== VERIFICAÇÕES ========================== """
+    aux_bool = False
+
+    # Verifica se existe uma função nativa do Python ou presente no escopo global com o nome específicado
+    # Caso não exista, retorna um erro
+    if func != None and isinstance(func, str) and not verificar_func(func) and not (globals().get(func) and callable(globals().get(func))):
+        return "Erro: Não foi encontrado nenhuma função existente com o nome de " + str(func)
+
+    if by != None and isinstance(by, list):
+
+        for i in range(len(by)):
+            if (axis == 0 or axis == 'index') and not by[i] in col:
+                aux_bool = True
+            elif (axis == 1 or axis == 'columns') and not by[i] in ind:
+                aux_bool = True
+
+    if by != None and isinstance(by, (str, int, float)) and (((axis == 0 or axis == 'index') and not by in col) or ((axis == 1 or axis == 'columns') and not by in ind)) or aux_bool:
+        return "Erro: Não foi encontrado nenhuma linha/coluna(s) com o nome correspondente ao específicado em 'by'"
+
+    """ ================================================================== """
+
+
+    """ ============== RETORNO SEM UTILIZAÇÃO DE FUNÇÃO ============== """
+
+    # dicionario = {"__dataFrame__":df,
+    #               "__columns__":col,
+    #               "__index__":ind,
+    #               "__groupedBy__":by,
+    #               "__axis__":axis
+    #              }
+
+    dicionario = {}
+
+    for i in range(len(ind)):
+
+        lista_aux = []
+
+        if isinstance(by, (str, int, float)):
+            if not df[i][col.index(by)] in dicionario:
+                dicionario.update({df[i][col.index(by)]:[]})
+
+            dicionario[df[i][col.index(by)]].append(ind[i])
+
+        elif isinstance(by, list):
+            for j in range(len(by)):
+                lista_aux.append(df[i][col.index(by[j])])
+
+            lista_aux = tuple(lista_aux)
+
+            if not lista_aux in dicionario:
+                dicionario.update({tuple(lista_aux):[]})
+
+            dicionario[tuple(lista_aux)].append(ind[i])
+
+    if func == None:
+        return dicionario
+
+    elif func != None: # RETORNO COM UTILIZAÇÃO DE FUNÇÃO
+
+        df_result = []
+        col_result = []
+        ind_result = []
+
+        for chave, valor in dicionario.items():
+            if as_index == True and not chave in ind_result:
+                ind_result.append(chave)
+
+            for j in range(len(col)):
+                if isinstance(by, (str, int, float)) and not col[j] in col_result:
+                    if (as_index == True and col[j] != by) or as_index == False:
+                        col_result.append(col[j])
+                elif isinstance(by, list) and not col[j] in col_result:
+                    if (as_index == True and not col[j] in by) or as_index == False:
+                        col_result.append(col[j])
+
+            linha = []
+
+            for j in range(len(col_result)):
+                lista_aux = []
+
+                for i in range(len(valor)):
+                    indice = ind.index(valor[i])
+                    coluna = col.index(col_result[j])
+
+                    if as_index == True or (as_index == False and ((isinstance(by, list) and not col[coluna] in by) or (isinstance(by, (str, int, float)) and col[coluna] != by))):
+                        lista_aux.append(df[indice][coluna])
+
+                if as_index == True or (as_index == False and ((isinstance(by, list) and not col[coluna] in by) or (isinstance(by, (str, int, float)) and col[coluna] != by))):
+                    linha.append(func(lista_aux, *args, **kwargs))
+
+            if as_index == False:
+                if isinstance(chave, tuple):
+                    for i in range(len(chave)):
+                        linha.insert(i, chave[i])
+
+                elif isinstance(chave, (str, int, float)):
+                    linha.insert(0, chave)
+
+            df_result.append(linha)
+
+
+    """ ======================= SORT ======================= """
+
+    if sort == True:
+        for i in range(len(df_result)):
+            for j in range(i+1, len(df_result), 1):
+                if as_index == False and ver_maior_group(df_result[i], df_result[j], col_result, by, as_index):
+                    aux = df_result[i]
+                    df_result[i] = df_result[j]
+                    df_result[j] = aux
+                elif as_index == True and ver_maior_group(ind_result[i], ind_result[j], col_result, by, as_index):
+                    aux = df_result[i]
+                    df_result[i] = df_result[j]
+                    df_result[j] = aux
+
+                    aux = ind_result[i]
+                    ind_result[i] = ind_result[j]
+                    ind_result[j] = aux
+
+    """ ==================================================== """
+
+
+    """ ====================== DROPNA ====================== """
+
+    nan = (float('nan'), "NaN", "nan", numpy.nan)
+
+    if dropna == True:
+        if as_index == True:
+            for i in range(len(ind_result)):
+                if not isinstance(by, list) and ind_result[i] in nan:
+                    ind_result.pop(i)
+                    df_result.pop(i)
+                elif isinstance(by, list):
+                    for j in range(len(ind_result[i])):
+                        if ind_result[i][j] in nan:
+                            ind_result.pop(i)
+                            df_result.pop(i)
+        else:
+            for i in range(len(df_result)):
+                if not isinstance(by, list) and df_result[i][col_result.index(by)] in nan:
+                    ind_result.pop(i)
+                    df_result.pop(i)
+                elif isinstance(by, list):
+                    for j in range(len(by)):
+                        if by[j] in col_result:
+                            c = col_result.index(by[j])
+
+                            if ind_result[i][c] in nan:
+                                ind_result.pop(i)
+                                df_result.pop(i)
+
+    return df_result, col_result, ind_result
