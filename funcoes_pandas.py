@@ -75,7 +75,7 @@ def shape(df):
         colunas = 0
     return (linhas,colunas)
 
-def reshape(df, dimensao, order='C', copy=True):
+def reshape(df, shape_df, order='C', copy=True):
   """
   Recebe um matriz df e a redimensiona de acordo com a dimensão e ordem passadas via parâmetro.
   O parâmetro order define o ordem na qual a matriz será reorganizada, podendo receber os seguintes
@@ -96,10 +96,10 @@ def reshape(df, dimensao, order='C', copy=True):
 
     # caso a ordem seja C, os valores de df serão redimensionados por linha
     if order == 'C':
-      for i in range(dimensao[0]):
+      for i in range(shape_df[0]):
         linha = []
 
-        for j in range(dimensao[1]):
+        for j in range(shape_df[1]):
           if ind_coluna == shape_ant[1]:
             ind_linha +=1
             ind_coluna = 0
@@ -114,13 +114,13 @@ def reshape(df, dimensao, order='C', copy=True):
     if order == 'F':
 
       # Pra facilitar, vamos criar as linhas e colunas de novo_df e só depois inserir todos os valores coluna por coluna
-      for i in range(dimensao[0]):
-        linha = [None]*dimensao[1]
+      for i in range(shape_df[0]):
+        linha = [None]*shape_df[1]
 
         novo_df.append(linha)
 
-      for j in range(dimensao[1]):
-        for i in range(dimensao[0]):
+      for j in range(shape_df[1]):
+        for i in range(shape_df[0]):
           if ind_coluna == shape_ant[1]:
             ind_linha +=1
             ind_coluna = 0
@@ -139,15 +139,15 @@ def reshape(df, dimensao, order='C', copy=True):
       # caso a ordem seja C, os valores de df serão redimensionados por linha
 
       # caso a quantidade de linhas anterior seja menor que a nova, criamos novas linhas para na matriz df
-      if(shape_ant[0] < dimensao[0]):
-        for i in range(shape_ant[0], dimensao[0]):
+      if(shape_ant[0] < shape_df[0]):
+        for i in range(shape_ant[0], shape_df[0]):
           df.append([None])
 
       if order == 'C':
-        for i in range(dimensao[0]):
+        for i in range(shape_df[0]):
           linha = []
 
-          for j in range(dimensao[1]):
+          for j in range(shape_df[1]):
             if ind_coluna == shape_ant[1]:
               ind_linha +=1
               ind_coluna = 0
@@ -160,13 +160,13 @@ def reshape(df, dimensao, order='C', copy=True):
       # caso a ordem seja F, os valores de df serão redimensionados por coluna
 
       if order == 'F':
-        for i in range(dimensao[0]):
-          linha = [None]*dimensao[1]
+        for i in range(shape_df[0]):
+          linha = [None]*shape_df[1]
 
           df[i] = linha
 
-        for j in range(dimensao[1]):
-          for i in range(dimensao[0]):
+        for j in range(shape_df[1]):
+          for i in range(shape_df[0]):
             if ind_coluna == shape_ant[1]:
               ind_linha +=1
               ind_coluna = 0
@@ -176,9 +176,9 @@ def reshape(df, dimensao, order='C', copy=True):
             ind_coluna += 1
 
       # Depois de modificar as linhas necess
-      if dimensao[0] < shape_ant[0]:
-        for i in range(dimensao[0], shape_ant[0]):
-          df.remove(df[dimensao[0]])
+      if shape_df[0] < shape_ant[0]:
+        for i in range(shape_df[0], shape_ant[0]):
+          df.remove(df[shape_df[0]])
 
 def loc(df, index, columns, *, loc_ind=None, loc_col=None):
   """
@@ -243,7 +243,7 @@ def loc(df, index, columns, *, loc_ind=None, loc_col=None):
 
   return new_df,new_index,new_col
 
-def iloc(df, index, columns, *, loc_ind=None, loc_col=None):
+def iloc(df, index, columns, *, iloc_ind=None, iloc_col=None):
     """
     Recebe uma matriz df, seus vetores associados index e columns, que contém os rótulos de linha e coluna respectivamente,
     e os índices de linha (loc_ind) e de coluna (loc_col) os quais queremos acessar em df. Os parâmetros loc_ind e loc_col podem
@@ -261,16 +261,16 @@ def iloc(df, index, columns, *, loc_ind=None, loc_col=None):
     int_index = []
     int_col = []
 
-    if type(loc_ind) != list:
-        int_index.append(loc_ind)
+    if type(iloc_ind) != list:
+        int_index.append(iloc_ind)
     else:
-        int_index = loc_ind.copy()
+        int_index = iloc_ind.copy()
 
 
-    if type(loc_col) != list:
-        int_col.append(loc_col)
+    if type(iloc_col) != list:
+        int_col.append(iloc_col)
     else:
-        int_col = loc_col.copy()
+        int_col = iloc_col.copy()
 
     for i in range(dimensao[0]):
         linha = []
@@ -306,6 +306,8 @@ def iloc(df, index, columns, *, loc_ind=None, loc_col=None):
 
         if linha != []:
             new_df.append(linha)
+
+    return new_df,new_index,new_col
 
 def insert (df, columns, loc, col, value, allowduplicates=False):
   """
