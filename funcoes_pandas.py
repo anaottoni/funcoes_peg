@@ -2161,6 +2161,24 @@ def largest_group(l1, l2, col_result, by, as_index):
               else:
                   return False
 
+def nan_list(elements):
+
+    """
+    Função que verifica se algum valor de uma lista é NaN (Not a Number)
+    Seus parâmetros são:
+    - elements: Lista a ser verificada
+    Retorna: True para caso haja algum valor em elements que seja NaN
+    """
+
+    nan = ("nan", "NaN", float('nan'), numpy.nan)
+    
+    if iter(elements):
+        for i in range(len(elements)):
+            if elements[i] in nan:
+                return True
+      
+    return False
+
 # FUNÇÕES
 
 def drop(df, col, ind, labels=None, axis=0, index=None, columns=None, inplace=False, errors='raise'):
@@ -2933,10 +2951,21 @@ def groupby(df, col, ind, by=None, axis=0, as_index=True, sort=True, group_keys=
 
             aux_list = tuple(aux_list)
 
-            if not aux_list in dictionary:
-                dictionary.update({tuple(aux_list):[]})
+            if not aux_list in dictionary.keys():
+                dictionary.update({aux_list:[]})
 
-            dictionary[tuple(aux_list)].append(ind[i])
+            dictionary[aux_list].append(ind[i])
+
+    """ ============ DROPNA ============ """
+
+    if dropna == True:
+        key = list(dictionary.keys())
+
+        for i in range(len(key)):
+            if nan_list(key[i]):
+                dictionary.pop(key[i])
+
+    """ ================================ """
 
     if func == None:
         return dictionary
@@ -2972,7 +3001,7 @@ def groupby(df, col, ind, by=None, axis=0, as_index=True, sort=True, group_keys=
                         aux_list.append(df[aux_ind][c])
 
                 if as_index == True or (as_index == False and ((isinstance(by, list) and not col[c] in by) or (isinstance(by, (str, int, float)) and col[c] != by))):
-                    row.append(func(aux_list, *args, **kwargs))
+                    row.append(apply_function(aux_list, func, *args, **kwargs))
 
             if as_index == False:
                 if isinstance(key, tuple):
@@ -3004,36 +3033,6 @@ def groupby(df, col, ind, by=None, axis=0, as_index=True, sort=True, group_keys=
                     ind_result[j] = aux
 
     """ ==================================================== """
-
-
-    """ ====================== DROPNA ====================== """
-
-    nan = (float('nan'), "NaN", "nan", numpy.nan)
-
-    if dropna == True:
-        if as_index == True:
-            for i in range(len(ind_result)):
-                if not isinstance(by, list) and ind_result[i] in nan:
-                    ind_result.pop(i)
-                    df_result.pop(i)
-                elif isinstance(by, list):
-                    for j in range(len(ind_result[i])):
-                        if ind_result[i][j] in nan:
-                            ind_result.pop(i)
-                            df_result.pop(i)
-        else:
-            for i in range(len(df_result)):
-                if not isinstance(by, list) and df_result[i][col_result.index(by)] in nan:
-                    ind_result.pop(i)
-                    df_result.pop(i)
-                elif isinstance(by, list):
-                    for j in range(len(by)):
-                        if by[j] in col_result:
-                            c = col_result.index(by[j])
-
-                            if ind_result[i][c] in nan:
-                                ind_result.pop(i)
-                                df_result.pop(i)
 
     return df_result, col_result, ind_result
 
