@@ -529,7 +529,7 @@ def min_col(df):
 
     return lista_min
 
-def normalizar_df(df, feature_range=(0,1), *,copy=True, clip=False):
+def minMaxScaler(df, feature_range=(0,1), *,copy=True, clip=False):
     """
     Recebe uma amtriz df e padroniza seus valores com a técnica min-max,
     de forma que todos os seus elementos serão padronizados para o intervalo dado pela tupla feature_range
@@ -623,7 +623,7 @@ def desvio_padrao_col (df):
 
     return lista_dv
 
-def padronizar_df(df, *, copy=True,with_mean=True, with_std=True):
+def standardScaler(df, *, copy=True,with_mean=True, with_std=True):
     """
     Recebe uma matriz df e padroniza os dados de acordo com os parâmetros with_mean
     e with_std, podendo retornar uma matriz com os dados padronizados caso copy = True,
@@ -1095,7 +1095,7 @@ def menor_elemento_col (df, col):
 
     return menor
 
-def desvio_padrao_col(df, col):
+def desvio_padrao_ind_col(df, col):
     """
     Recebe uma matriz df e retorna o desvio padrão da coluna de índice col
     """
@@ -1309,7 +1309,7 @@ def describe(df, col, percentiles=None, include=None, exclude=None):
             if number == True:
                 if eh_num == True:
                     saida[2+ind].append(calcula_media_colunas(df,j))
-                    saida[3+ind].append(desvio_padrao_col(df,j))
+                    saida[3+ind].append(desvio_padrao_ind_col(df,j))
                     saida[4+ind].append(menor_elemento_col(df,j))
                     for i in range(len(percentiles)):
                         saida[5+i+ind].append(calcula_percentil(df,j,percentiles[i]))
