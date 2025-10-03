@@ -3935,7 +3935,7 @@ def to_csv(df, col, ind, arq=None, sep=',', na_rep='', float_format=None, column
 
         return None
 
-def read_csv(fl, sep=',', header='infer', names=None, index_col=None, usecols=None, dtype=None):
+def read_csv(fl, sep=',', header='infer', names=None, index_col=None, usecols=None, dtype=None, quotechar='"'):
 
     """
     Função que lê os dados de um arquivo CSV
@@ -3947,27 +3947,50 @@ def read_csv(fl, sep=',', header='infer', names=None, index_col=None, usecols=No
      - index_col: Index numérico ou rótulo da coluna em que se encontra os indexes das linhas
      - usecols: Lista com as colunas que serão lidas
      - dtype: Determina qual o tipo de dado que os valores do DataFrames serão formatados, podendo receber um dicionário
+     - quotechar: Recebe uma string de tamanho 1 que será utilizado como um delimitador de campos
     Retorna: Um DataFrame (matriz, coluna, índice)
     """
 
     try:
         req = requests.get(fl)
-        file_read = req.text.splitlines()
+        file_read = req.text()
         fl_open = False
     except requests.exceptions.RequestException:
-        file_read = open(fl, 'r', encoding='utf-8')
-        fl_open = True
+        try:
+            file = open(fl, 'r', encoding='utf-8')
+            fl_open = True
 
-        if not file_read:
+            file_read = file.read()
+        except Exception:
             return "Erro: Falha ao abrir arquivo"
 
     df = []
     col = []
     ind = []
 
-    for linha in file_read:
-        list_row = linha.replace('\n', '').split(sep)
-        df.append(list_row)
+    string = ''
+    aux = []
+    quote = False
+    
+    for i in range(len(file_read)):
+
+        if file_read[i] == sep and not quote:
+            aux.append(string) # Adiciona um elemento (string) na linha aux
+            string = ''
+        elif file_read[i] == "\n" and not quote:
+            if len(string) == 0:
+                string = float('nan')
+            aux.append(string) # Adiciona um elemento (string) na linha (aux)
+            string = ''
+            df.append(aux) # Adiciona uma linha (aux) no DataFrame
+            aux = []
+        elif file_read[i] == quotechar:
+            if quote:
+                quote = False
+            else:
+                quote = True
+        else:
+            string += str(file_read[i])
 
     if names != None and not isinstance(header, int):
         if len(names) != len(df[0]):
@@ -4018,7 +4041,7 @@ def read_csv(fl, sep=',', header='infer', names=None, index_col=None, usecols=No
     else: # Se não for informado nenhum valor no parâmetro index_col, cria-se um novo index sequencial
         seq = 0
 
-        for i in range(len(df)-1): # Menos 1 devido ao fato que umas das linhas do DataFrame será dos rótulos das colunas
+        for i in range(len(df)):
             ind.append(seq)
             seq += 1
 
@@ -4055,8 +4078,8 @@ def read_csv(fl, sep=',', header='infer', names=None, index_col=None, usecols=No
     for i in range(len(df)): # Conversão dos números para seus respectivos tipos
         for j in range(len(df[i])):
             if df[i][j] != None:
-                if df[i][j].replace('.', '', 1).isnumeric(): # Utiliza replace para remover um ponto (.), pois isnumeric
-                                                             # não identifica valores com ponto como um valor numérico
+                if isinstance(df[i][j], str) and df[i][j].replace('.', '', 1).isnumeric(): # Utiliza replace para remover um ponto (.), pois isnumeric
+                                                                                           # não identifica valores com ponto como um valor numérico
                     df[i][j] = float(df[i][j])
 
                     if df[i][j] - int(df[i][j]) == 0:
@@ -4120,7 +4143,7 @@ def read_csv(fl, sep=',', header='infer', names=None, index_col=None, usecols=No
                             df[i][j] = dtype(df[i][j])
 
     if fl_open:
-        file_read.close()
+        file.close()
 
     return df, col, ind
 
