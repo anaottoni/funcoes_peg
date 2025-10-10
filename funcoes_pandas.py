@@ -2180,6 +2180,87 @@ def nan_list(elements):
       
     return False
 
+def check_type(obj):
+
+    """
+    Função que recebe um "objeto" (matriz ou vetor) para verificar se é DataFrame ou Series.
+    Retorna 1 (True) para DataFrame e 0 (False) para Series.
+    """
+
+    if len(obj) == 3:
+        return 1
+    elif len(obj) == 2:
+        return 0
+
+def inner_join(objs, axis=0):
+
+    """
+    Função que recebe uma lista de objetos (com vetores e matrizes que representam DataFrames e Series, respectivamente) e verifica, de acordo com a definição
+    do parâmetro join='inner', quais serão as colunas/linhas concatenadas.
+    Seus parâmetros são:
+     - objs: Lista de "objetos" a ser verificado (DataFrames ou Series)
+     - axis: Eixo de verificação
+    Retorna uma lista com as colunas/linhas que serão concatenadas.
+    """
+
+    list_elements = []
+    dict_elements = {} # Utilizado para relacionar as colunas/linhas com os DataFrames/Series pertencentes (contabilizado ao final)
+    seq = 0 # Sequência do index para objetos do tipo Series
+
+    for i in range(len(objs)):
+        obj = objs[i] # Facilitar a manipulação
+
+        if axis == 0 or axis == 'index': # Verificar o nome da coluna em caso de axis=0
+
+            if check_type(obj): # DataFrame
+                for j in range(len(obj[1])): # Acessando as colunas do DataFrame (matriz, colunas, indexes)
+                    if obj[1][j] not in dict_elements.keys(): # Verifica se a coluna está presente no dicionário como uma chave
+                        dict_elements.update({obj[1][j]:[]}) # Se não estiver, adiciona a coluna como uma chave vinculada a um vetor vazio
+                        dict_elements.get(obj[1][j]).append(i) # Adiciona o index do objeto ao vetor associado
+
+                    else: # Se a coluna já estiver como chave no dicionário
+                        dict_elements.get(obj[1][j]).append(i) # Adiciona o index do objeto ao vetor associado
+
+            else: # Series
+                if seq not in dict_elements.keys(): # Verifica se o index sequencial utilizado para Series está presente no dicionário como uma chave
+                    dict_elements.update({seq:[]}) # Se não estiver, adiciona o index sequencial como uma chave vinculada a um vetor vazio
+                    dict_elements.get(seq).append(i) # Adiciona o index do objeto ao vetor associado
+                else:
+                    dict_elements.get(seq).append(i) # Adiciona o index do objeto ao vetor associado
+
+                seq += 1 # Incrementa a sequência das Series
+
+        elif axis == 1 or axis == 'columns': # Verificar o nome da linha em caso de axis=1
+
+            if check_type(obj): # DataFrame
+                for j in range(len(obj[2])): # Acessando as linhas do DataFrame
+                    if obj[2][j] not in dict_elements.keys(): # Verifica se a linha está presente no dicionário como uma chave
+                        dict_elements.update({obj[2][j]:[]}) # Se não estiver, adiciona a linha como uma chave vinculada a um vetor vazio
+                        dict_elements.get(obj[2][j]).append(i) # Adiciona o index do objeto ao vetor associado
+
+                    else: # Se a linha já estiver como chave no dicionário
+                        dict_elements.get(obj[2][j]).append(i) # Adiciona o index do objeto ao vetor associado
+
+            else: # Series
+                for j in range(len(obj[1])): # Acessa os indexes da Series
+                    if obj[1][j] not in dict_elements.keys(): # Verifica se a linha está presente no dicionário como uma chave
+                        dict_elements.update({obj[1][j]:[]}) # Se não estiver, adiciona a linha como uma chave vinculada a um vetor vazio
+                        dict_elements.get(obj[1][j]).append(i) # Adiciona o index do objeto ao vetor associado
+
+                    else:
+                        dict_elements.get(obj[1][j]).append(i) # Adiciona o index do objeto ao vetor associado
+
+                seq += 1 # Incrementa a sequência das Series
+
+    dictionary = dict_elements.items()
+    dictionary = list(dictionary) # Tranforma o objeto do tipo 'dict_items' (resultante da chamada da função items do dicionário)
+
+    for i in range(len(dictionary)):
+        if len(dictionary[i][1]) == len(objs): # Compara a quantidade de valores presente no vetor associado a chave com a quantidade de objetos
+            list_elements.append(dictionary[i][0]) # Adiciona as colunas/linhas que tiverem a quantidade de objetos que as possuam correspondente a quantidade de objetos
+
+    return list_elements
+
 # FUNÇÕES
 
 def drop(df, col, ind, labels=None, axis=0, index=None, columns=None, inplace=False, errors='raise'):
@@ -3515,7 +3596,7 @@ def df_map(df, col, ind, func, axis=0, na_action=None, **kwargs):
     if not isinstance(func, (list, dict)):
         for i in range(len(df)):
             for j in range(len(df[i])):
-                df[i][j] = func(df[i][j], **kwargs)
+                df[i][j] = apply_function(df[i][j], func, **kwargs)
 
     else:
         if isinstance(func, list):
@@ -3527,7 +3608,7 @@ def df_map(df, col, ind, func, axis=0, na_action=None, **kwargs):
                         if not callable(func[k]):
                             return "Erro: o argumento de func deve ser um objeto do tipo chamável", None, None
                         else:
-                            aux.append(func[k](df[i][j], **kwargs))
+                            aux.append(apply_function(df[i][j], func[k], **kwargs))
 
                     df[i][j] = aux
 
@@ -3557,12 +3638,12 @@ def df_map(df, col, ind, func, axis=0, na_action=None, **kwargs):
                             if not callable(functions[k]):
                                 return "Erro: o argumento de func deve ser um objeto do tipo chamável", None, None
                             else:
-                                aux.append(functions[k](df[i][j], **kwargs))
+                                aux.append(apply_function(df[i][j], functions[k], **kwargs))
 
                         df[i][j] = aux
 
                     elif functions != None:
-                        df[i][j] = functions(df[i][j], **kwargs)
+                        df[i][j] = apply_function(df[i][j], functions, **kwargs)
 
     return df, col, ind
 
@@ -3747,9 +3828,10 @@ def df_apply(df, col, ind, func, axis=0, raw=False, result_type=None, args=(), b
 
     if by_row == 'compat': # Verifica qual o melhor tipo de aplicação (em série ou para cada elemento individualmente)
         try:
-            aux = apply_function([1, 2, 3], func)
+            result_format = apply_function([1, 2, 3], func, **kwargs)
             by_row = False
         except Exception:
+            result_format = apply_function(123, func, **kwargs)
             by_row = True
 
     if by_row:
@@ -3762,7 +3844,7 @@ def df_apply(df, col, ind, func, axis=0, raw=False, result_type=None, args=(), b
     if isinstance(df_result, str):
         return df_result
 
-    if isinstance(apply_function([1, 2, 3], func), (list, numpy.ndarray)):
+    if isinstance(result_format, (list, numpy.ndarray)):
         if axis == 1:
             for i in range(len(df_result)):
                 df_result[i] = df_result[i][0]
@@ -3770,7 +3852,7 @@ def df_apply(df, col, ind, func, axis=0, raw=False, result_type=None, args=(), b
             df_result = df_result[0]
 
     if not isinstance(func, (list, dict)):
-        if isinstance(apply_function([1, 2, 3], func), (list, numpy.ndarray)) and axis == 0:
+        if isinstance(result_format, (list, numpy.ndarray)) and axis == 0:
             temp = copy.deepcopy(df_result)
             df_result = []
 
@@ -3782,7 +3864,7 @@ def df_apply(df, col, ind, func, axis=0, raw=False, result_type=None, args=(), b
 
                 df_result.append(aux)
 
-    if isinstance(apply_function([1, 2, 3], func), (list, numpy.ndarray)):
+    if isinstance(result_format, (list, numpy.ndarray)):
         if axis == 0 and len(df_result) != len(df):
             return "Erro: Formato dos valores passados é (" + str(len(df_result)) + ", " + str(len(df_result[0])) + "), porém os indexes implicam o formato ("  + str(len(df)) + ", " + str(len(df[0])) + ")"
         elif axis == 1 and len(df_result[0]) != len(df[0]):
@@ -3793,7 +3875,7 @@ def df_apply(df, col, ind, func, axis=0, raw=False, result_type=None, args=(), b
 
     if result_type == 'broadcast':
         if not isinstance(func, (list, dict)):
-            if not isinstance(apply_function([1, 2, 3], func), (list, dict, numpy.ndarray)):
+            if not isinstance(result_format, (list, dict, numpy.ndarray)):
                 col_result = copy.deepcopy(col)
                 ind_result = copy.deepcopy(ind)
                 value = df_result[0][0]
@@ -3874,7 +3956,7 @@ def to_csv(df, col, ind, arq=None, sep=',', na_rep='', float_format=None, column
                     if (i == 0 and j == 0):
                         string_csv += ' '
                     elif i == 0:
-                        if columns == None or (j-ic in lista): # Caso columns possua um argumento, verifica se a coluna faz parte da lista de colunas
+                        if columns == None or (j-ic in index_columns): # Caso columns possua um argumento, verifica se a coluna faz parte da lista de colunas
                             string_csv += str(name_col[auxc])
                             auxc += 1
                     elif j == 0:
@@ -3954,7 +4036,8 @@ def read_csv(fl, sep=',', header='infer', names=None, index_col=None, usecols=No
 
     try:
         req = requests.get(fl)
-        file_read = req.text()
+        req.raise_for_status()
+        file_read = req.text
         fl_open = False
     except requests.exceptions.RequestException:
         try:
@@ -3972,7 +4055,7 @@ def read_csv(fl, sep=',', header='infer', names=None, index_col=None, usecols=No
     string = ''
     aux = []
     quote = False
-    
+
     for i in range(len(file_read)):
 
         if file_read[i] == sep and not quote:
@@ -4148,7 +4231,7 @@ def read_csv(fl, sep=',', header='infer', names=None, index_col=None, usecols=No
 
     return df, col, ind
 
-def concat(objs, axis=0, join='outer', ignore_index=False, verify_integrity=False, sort=False, copy=None):
+def concat(objs, axis=0, join='outer', ignore_index=False, verify_integrity=False, sort=False, copy_p=True):
 
     """
     Função que realiza a concatenação de duas ou mais DataFrames/Series
@@ -4172,189 +4255,193 @@ def concat(objs, axis=0, join='outer', ignore_index=False, verify_integrity=Fals
     df_result = []
     col_result = []
     ind_result = []
+
     seq = -1 # Rótulos (sequência) para Series, pois não apresentam rótulos, apenas indexes
+    pointer = 0 # Variável auxiliar que será utilizado para apontar a última posição (index da linha/coluna) do DataFrame/Series a
+                # adicionado
 
-    if axis == 0: # Concatenação em linhas
+    if axis == 0 or axis == 'index': # Concatenação em linhas
+        if join == 'outer': # Todas as linhas/colunas serão incluídas
 
-        if join == 'outer':
-            if len(objs[0]) == 3: # Se apresentar 3 elementos significa que é um DataFrame (matriz, colunas, indexes)
-                df_result = objs[0][0]
-                col_result = objs[0][1]
-                ind_result = objs[0][2]
+            if copy_p: # Se for copy == True, então realiza a operação em uma cópia
+                if check_type(objs[0]): # Se True, então é um DataFrame
+                    df_result = copy.deepcopy(objs[0][0])
+                    col_result = copy.deepcopy(objs[0][1])
+                    ind_result = copy.deepcopy(objs[0][2])
+                else: # Se False, então é uma Series
+                    seq += 1
+                    col_result.append(seq)
 
-            elif len(objs[0]) == 2: # É uma Series, pois apresenta 2 elementos (vetor, indexes)
-                col_result.append(seq+1)
+                    for i in range(len(objs[0][0])):
+                        df_result.append([objs[0][0][i]])
 
-                for i in range(len(objs[0][0])):
-                    df_result.append([objs[0][0][i]])
+                    ind_result.append = objs[0][1]
 
-                ind_result = objs[0][1]
+            else:
+                if check_type(objs[0]): # Se True, então é um DataFrame
+                    df_result = objs[0][0]
+                    col_result = objs[0][1]
+                    ind_result = objs[0][2]
+                else: # Se False, então é uma Series
+                    seq += 1
+                    col_result.extend([seq])
 
-        for o1 in objs: # Percorre a lista de objetos (DataFrame/Series)
+                    for i in range(len(objs[0][0])):
+                        df_result.extend([[objs[0][0][i]]])
 
-            # Verifica a quantidade de elementos do objeto o
-            if len(o1) == 2: # Se apresenta apenas dois elementos significa que trata-se de uma Series (vetor, indexes)
-                df = o1[0]
-                ind = o1[1]
-                seq += 1 # Incrementa quando encontra uma Series
+                    ind_result = objs[0][1]
+
+        for o in objs: # Percorre a lista de objetos (DataFrames/Series) - axis == 0
+            if check_type(o): # DataFrame
+                df = o[0]
+                col = o[1]
+                ind = o[2]
+            else:
+                df = o[0]
+                ind = o[1]
+                seq += 1
                 col = [seq] # Em formato de lista para funcionar como se fosse um DataFrame
-
-            elif len(o1) == 3: # Caso contrário, apresente três elementos significa que é um DataFrame (matriz, colunas, indexes)
-                df = o1[0]
-                col = o1[1]
-                ind = o1[2]
 
             if join == 'inner': # Se for inner, será realizado a verificação para cada coluna entre todos os objetos, em que
                                 # apenas aqueles que aparacem em todos os objetos serão adicionados ao resultado
 
-                for i in range(len(ind)): # Percorre as linhas do objeto o1
-                    linha = []
+                columns = inner_join(objs, axis) # Pega os rótulos das colunas que irão para o resultado
 
-                    # Para cada linha, verifica as colunas:
-                    for j in range(len(col)): # Percorre as colunas do objeto o2
-                        cont = 0 # Variável que armazenará a quantidade de vezes que tal coluna aparece entre todos os objetos
-                        aux = 1
+                for i in range(len(ind)): # Independente do caso (DataFrame ou Series), percorre-se as linhas
+                    row = []
 
-                        for o2 in objs: # Percorre a lista de objetos novamente, para realizar a comparação
-                            if len(o2) == 3: # o2 é um DataFrame
-                                if o1 != o2 and col[j] in o2[1]: # Verifica se a coluna de j do objeto o1 está presente entre as colunas de o2
-                                    cont += 1 # Se estiver, incrementa o contador em 1
-
-                            elif len(o2) == 2: # o2 é uma Series
-                                if o1 != o2 and col[j] == seq+aux:
-                                    cont += 1
-                                aux += 1
-
-                        if cont == len(objs)-1: # A quantidade de vezes que aparece é equivalente a quantidade de objetos da lista
-                            linha.append("NaN") # Adiciona um elemento NaN para cada coluna
-
-                            if col[j] in col_result and verify_integrity == True: # Verifica se a coluna já não está presente e se verify_integrity == True
+                    for j in range(len(col)): # Percorre as colunas
+                        if col[j] in columns: # Se estiver presente na lista de coluna que serão incluídas no resultado
+                            if col[j] in col_result and verify_integrity: # Verifica se a coluna já não está presente e se verify_integrity == True
                                 return "Erro: Coluna apresenta rótulos repetidos"
 
-                            elif not col[j] in col_result: # Verifica se a coluna já não foi adicionada
-                                col_result.append(col[j]) # Adiciona a coluna (de o1) na lista de colunas resultante
+                            row.extend([float('nan')])
 
-                            if col[j] in col_result: # Se a coluna estiver presente busca a posição dela
-                                if len(o1) == 3: # DataFrame
-                                    linha[col_result.index(col[j])] = df[i][col.index(col[j])] # Altera o valor da posição correspondente
-                                elif len(o1) == 2: # Series
-                                    linha[col_result.index(col[j])] = df[i] # Altera o valor da posição correspondente
+                            if col[j] not in col_result:
+                                col_result.extend([col[j]])
 
-                    if len(linha) != 0:
-                        df_result.append(linha) # Adiciona a linha ao df_result
-                        ind_result.append(ind[i]) # Adiciona o index da linha ao resultado
+                            if col[j] in col_result:
+                                index = col_result.index(col[j])
+
+                                if check_type(o): # DataFrame
+                                    row[index] = df[i][col.index(col[j])]
+                                else: # Series
+                                    row[index] = df[i]
+
+                    if len(row) > 0:
+                        df_result.extend([row])
+                        ind_result.extend([ind[i]])
 
             elif join == 'outer':
-                if objs.index(o1) != 0: # Pula o primeiro elemento
+                if objs.index(o) != 0: # Pula o primeiro elemento
                     for j in range(len(col)): # Percorre as colunas
-                        if not col[j] in col_result: # Verifica se a coluna não está presente até então no resultado
-                            col_result.append(col[j]) # Adiciona as colunas que não em presentes em col_result
-
-                            for i in range(len(df_result)): # Para cada coluna adicionada, adiciona mais um elemento NaN para cada linha
-                                df_result[i].append("NaN")
-
-                        elif col[j] in col_result and verify_integrity == True: # Verifica se a coluna já não está presente e se verify_integrity == True
+                        if col[j] in col_result and verify_integrity == True: # Verifica se a coluna já não está presente e se verify_integrity == True
                             return "Erro: Coluna apresenta rótulos repetidos"
 
+                        elif col[j] not in col_result:
+                            col_result.extend([col[j]]) # Adiciona as colunas que não em presentes em col_result
+
+                            for i in range(len(df_result)): # Para cada coluna adicionada, adiciona mais um elemento NaN para cada linha
+                                df_result[i].extend([float('nan')])
+
                     for i in range(len(ind)):
-                        ind_result.append(ind[i])
+                        ind_result.extend([ind[i]])
 
                     for i in range(len(ind)): # Percorre as linhas do df que será adicionado ao resultado
-                        linha = ["NaN"]*len(col_result)
+                        row = ["NaN"]*len(col_result)
 
                         for j in range(len(col)): # Percorre as colunas do df que será adicionado
                             if col[j] in col_result: # Se a coluna estiver presente busca a posição dela
-                                if len(o1) == 3: # DataFrame
-                                    linha[col_result.index(col[j])] = df[i][col.index(col[j])] # Altera o valor da posição correspondente
-                                elif len(o1) == 2: # Series
-                                    linha[col_result.index(col[j])] = df[i] # Altera o valor da posição correspondente
+                                index = col_result.index(col[j])
 
-                        df_result.append(linha)
+                                if check_type(o): # DataFrame
+                                    row[index] = df[i][col.index(col[j])] # Altera o valor da posição correspondente
+                                else: # Series
+                                    row[index] = df[i] # Altera o valor da posição correspondente
 
-    elif axis == 1: # Concatenação em colunas
+                        df_result.extend([row])
+
+    elif axis == 1 or axis == 'columns': # Concatenação em colunas
         if join == 'inner':
-            for o1 in objs:
+            indexes = inner_join(objs, axis)
 
-                # Verifica a quantidade de elementos do objeto o
-                if len(o1) == 2: # Se apresenta apenas dois elementos significa que trata-se de uma Series (vetor, indexes)
-                    df = o1[0]
-                    ind = o1[1]
-                    seq += 1 # Incrementa quando encontra uma Series
-                    col = [seq] # Em formato de lista para funcionar como se fosse um DataFrame
+            for o in objs:
+                if check_type(o): # DataFrame
+                    df = o[0]
+                    col = o[1]
+                    ind = o[2]
+                else: # Series
+                    df = o[0]
+                    ind = o[1]
+                    seq += 1
+                    col = [seq] # Em formato de lista para funcionar como um DataFrame
 
-                elif len(o1) == 3: # Caso contrário, apresente três elementos significa que é um DataFrame (matriz, colunas, indexes)
-                    df = o1[0]
-                    col = o1[1]
-                    ind = o1[2]
+                for j in range(len(col)): # Percorre as colunas do objeto o
+                    col_result.extend([col[j]]) # Adiciona todas as colunas do objeto o ao resultado
 
-                for j in range(len(col)): # Percorre as colunas do objeto o1
-                    col_result.append(col[j]) # Cada coluna é adicionada ao resultado
-
-                for i in range(len(ind)): # Percorre as linhas de o1
-                    cont = 0
-
-                    for o2 in objs: # Percorre novamente a lista de objetos
-                        if o1 != o2 and ((len(o2) == 2 and ind[i] in o2[1]) or (len(o2) == 3 and ind[i] in o2[2])):
-                            cont += 1 # Incrementa o contador ao encontrar correspondência nas linhas
-
-                    if cont == len(objs)-1: # Se o contador for equivalente a quantidade de objetos significa que está presente em todos os objetos
-                        if not ind[i] in ind_result: # Se o index ainda não estiver incluído no resultado, inclui-se ele e uma nova linha
-                            ind_result.append(ind[i])
-                            df_result.append([])
+                for i in range(len(ind)): # Percorre as linhas de o
+                    if ind[i] in indexes:
+                        if ind[i] not in ind_result: # Se o index ainda não estiver incluído no resultado, inclui-se ele e uma nova linha
+                            ind_result.extend([ind[i]])
+                            df_result.extend([[]])
 
                         if ind[i] in ind_result: # Verifica se o index já foi incluído e caso for, procura a linha correspondente
                             if verify_integrity == True:
                                 return "Erro: Linha apresenta indexes repetidos"
                             else:
-                                if len(o1) == 2:
+                                if not check_type(o):
                                     df[i] = [df[i]]
 
-                                df_result[ind_result.index(ind[i])] += df[i]
+                                df_result[ind_result[pointer:].index(ind[i])] += df[i]
 
         elif join == 'outer':
-            for o1 in objs:
+            for o in objs:
+                if check_type(o): # DataFrame
+                    df = o[0]
+                    col = o[1]
+                    ind = o[2]
+                else: # Series
+                    df = o[0]
+                    ind = o[1]
+                    seq += 1
+                    col = [seq] # Em formato de lista para funcionar como um DataFrame
 
-                # Verifica a quantidade de elementos do objeto o
-                if len(o1) == 2: # Se apresenta apenas dois elementos significa que trata-se de uma Series (vetor, indexes)
-                    df = o1[0]
-                    ind = o1[1]
-                    seq += 1 # Incrementa quando encontra uma Series
-                    col = [seq] # Em formato de lista para funcionar como se fosse um DataFrame
-
-                elif len(o1) == 3: # Caso contrário, apresente três elementos significa que é um DataFrame (matriz, colunas, indexes)
-                    df = o1[0]
-                    col = o1[1]
-                    ind = o1[2]
-
-                for i in range(len(ind)): # Percorre os indexes do objeto o1
-                    if not ind[i] in ind_result: # Verifica se tal index ainda não foi adicionado ao resultado
-                        ind_result.append(ind[i]) # Se ainda não estiver, adiciona
-                        df_result.append(["NaN"] * len(col_result)) # Para cada index incluído, adiciona-se uma
-                                                                    # nova linha, com a quantidade de suas colunas
-                                                                    # dependendo das colunas já incluídas no resultado
+                for i in range(len(ind)): # Percorre os indexes do objeto o
+                    if ind[i] not in ind_result: # Verifica se tal index ainda não foi adicionado ao resultado
+                        ind_result.extend([ind[i]]) # Se ainda não estiver, adiciona
+                        df_result.extend([[float('nan')] * len(col_result)]) # Para cada index incluído, adiciona-se uma
+                                                                             # nova linha, com a quantidade de suas colunas
+                                                                             # dependendo das colunas já incluídas no resultado
 
                     elif ind[i] in ind_result and verify_integrity == True:
                         return "Erro: Linha apresenta indexes repetidos"
 
-                for j in range(len(col)): # Percorre cada coluna de o1
-                    col_result.append(col[j]) # Adiciona cada coluna ao resultado
+                for j in range(len(col)): # Percorre cada coluna de o
+                    col_result.extend([col[j]]) # Adiciona cada coluna ao resultado
 
                 for i in range(len(df_result)): # Percorre as linhas do DataFrame resultante
                     for j in range(len(col)): # Em cada linha, percorre suas colunas
-                        df_result[i].append("NaN") # Adiciona mais um elemento NaN na linha, em função da quantidade
-                                                   # de colunas
+                        df_result[i].extend([float('nan')]) # Adiciona mais um elemento NaN na linha, em função da quantidade
+                                                            # de colunas
 
                 for i in range(len(ind)):
-                    linha = df_result[ind_result.index(ind[i])]
+                    row = df_result[ind_result.index(ind[i])]
 
                     for j in range(len(col)):
+                        if col[j] in col_result:
+                            if col[j] in col_result[pointer:len(col_result)]:
+                                index = col_result[pointer:len(col_result)].index(col[j]) + pointer
+                            else:
+                                index = col_result.index(col[j])
 
-                        for j2 in range(len(col_result)):
-                            if col_result[j2] == col[j] and linha[j2] == "NaN":
-                                if len(o1) == 2: # Series
-                                    linha[j2] = df[i]
-                                elif len(o1) == 3: # DataFrame
-                                    linha[j2] = df[i][j]
+                            if check_type(o): # DataFrame
+                                row[index] = df[i][j]
+                            else: # Series
+                                row[index] = df[i]
+
+                pointer += len(col)
+
+    """ ============== IGNORE_INDEX ============== """
 
     i_seq = 0
 
@@ -4368,6 +4455,9 @@ def concat(objs, axis=0, join='outer', ignore_index=False, verify_integrity=Fals
             for j in range(len(col_result)):
                 col_result[j] = i_seq
                 i_seq += 1
+
+
+    """ ================= SORT  ================= """
 
     if sort == True:
         if axis == 0: # Em linha
