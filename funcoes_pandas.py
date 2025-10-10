@@ -4400,6 +4400,9 @@ def concat(objs, axis=0, join='outer', ignore_index=False, verify_integrity=Fals
     return df_result, col_result, ind_result
 
 def head(df, index, col, n = 5):
+    """
+    Deve imprimir o dataframe (matriz df e seus vetores associados de linhas e colunas, index e col). O parâmetro n indica a quantidade de linhas que devem ser impressas, sendo 5 seu valor padrão.
+    """
     numlin, numcol = shape(df)
     print('{0:>10}'.format(""), end=" ")
 
@@ -4414,6 +4417,9 @@ def head(df, index, col, n = 5):
         print('{0:>10}'.format(index[i]), end=" ")
 
         for j in range (numcol):
-            print('{0:>10}'.format(df[i][j]), end=" ")
+            if dtype(df[i][j]) == 'float':
+                print('{0:>10.6f}'.format(df[i][j]), end=" ")
+            else:
+                print('{0:>10}'.format(df[i][j]), end=" ")
 
         print()
