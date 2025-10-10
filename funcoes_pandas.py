@@ -1275,6 +1275,7 @@ def describe(df, col, percentiles=None, include=None, exclude=None):
             for i in range(len(percentiles)):
                 saida.append([(str(int(percentiles[i]*100))+"%")])
         else:
+            percentiles = []
             percentiles.append(0.25)
             percentiles.append(0.5)
             percentiles.append(0.75)
