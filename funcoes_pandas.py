@@ -4375,3 +4375,22 @@ def concat(objs, axis=0, join='outer', ignore_index=False, verify_integrity=Fals
                             df_result[l2+1][j] = aux
 
     return df_result, col_result, ind_result
+
+def head(df, index, col, n = 5):
+    numlin, numcol = shape(df)
+    print('{0:>10}'.format(""), end=" ")
+
+    if n > numlin:
+        n = numlin
+
+    for i in range (numcol):
+        print('{0:>10}'.format(col[i]), end=" ")
+    print()
+    
+    for i in range(n):
+        print('{0:>10}'.format(index[i]), end=" ")
+
+        for j in range (numcol):
+            print('{0:>10}'.format(df[i][j]), end=" ")
+
+        print()
