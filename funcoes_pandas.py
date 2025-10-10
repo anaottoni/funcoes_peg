@@ -987,7 +987,7 @@ def info(df, col, index, verbose=None, buf=None,  memory_usage=None, show_counts
             print("Empty DataFrame")
 
         else:
-            print("RangeIndex:", numlin, "entries, 0 to", numlin-1)
+            print("RangeIndex:", numlin, "entries,", index[0],"to", index[numlin-1])
 
             if (verbose == None or verbose == True):
                 print("Data columns (total",numcol,"columns):")
@@ -1025,7 +1025,7 @@ def info(df, col, index, verbose=None, buf=None,  memory_usage=None, show_counts
             buf.write("Empty DataFrame")
 
         else:
-            buf.write("RangeIndex:"+ str(numlin)+ " entries, 0 to "+ str(numlin-1)+"\n")
+            buf.write("RangeIndex:"+ str(numlin)+ " entries "+ str(index[0])+" to "+ str(index[numlin-1])+"\n")
 
             if (verbose == None or verbose == True):
                 buf.write("Data columns (total "+str(numcol)+" columns):"+"\n")
@@ -1055,7 +1055,7 @@ def info(df, col, index, verbose=None, buf=None,  memory_usage=None, show_counts
                 buf.write("memory usage: "+str((sys.getsizeof(df)+sys.getsizeof(index)+sys.getsizeof(col)))+"+ bytes"+"\n")
             elif memory_usage == 'deep':
                 buf.write("memory usage: "+str(asizeof.asizeof(df)+asizeof.asizeof(index)+asizeof.asizeof(col))+"+ bytes"+"\n")
-
+                
 def contar_nao_nulos_coluna(df, col):
     """
     Recebe uma matriz df e retorna a quantidade de valores não nulos da coluna de índice col
