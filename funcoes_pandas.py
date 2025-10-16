@@ -4490,27 +4490,46 @@ def concat(objs, axis=0, join='outer', ignore_index=False, verify_integrity=Fals
 
     return df_result, col_result, ind_result
 
+def maiorTamanho (v):
+    """
+    Encontra o elemento com maior tamanho no vetor v.
+    """
+    maior = 0
+
+    for i in range(len(v)):
+        tamanho = len(str(v[i]))
+        if tamanho > maior:
+            maior = tamanho
+    
+    return maior
+
 def head(df, index, col, n = 5):
     """
     Deve imprimir o dataframe (matriz df e seus vetores associados de linhas e colunas, index e col). O parâmetro n indica a quantidade de linhas que devem ser impressas, sendo 5 seu valor padrão.
     """
     numlin, numcol = shape(df)
-    print('{0:>10}'.format(""), end=" ")
+    
+    maiorTamanhoIndex = maiorTamanho(index)
+
+    formatInd = "{:>" + str(maiorTamanhoIndex) + "} "
+
+    print(formatInd.format(""), end=" ")
 
     if n > numlin:
         n = numlin
 
     for i in range (numcol):
-        print('{0:>10}'.format(col[i]), end=" ")
+        print('{0:>} '.format(col[i]), end=" ")
     print()
     
     for i in range(n):
-        print('{0:>10}'.format(index[i]), end=" ")
+        print(formatInd.format(index[i]), end=" ")
 
         for j in range (numcol):
+            formatElemento = "{:>" + str(len(str(col[j]))) + "} "
             if dtype(df[i][j]) == 'float':
-                print('{0:>10.6f}'.format(df[i][j]), end=" ")
+                print(formatElemento.format(str(df[i][j])), end=" ")
             else:
-                print('{0:>10}'.format(df[i][j]), end=" ")
+                print(formatElemento.format(df[i][j]), end=" ")
 
         print()
