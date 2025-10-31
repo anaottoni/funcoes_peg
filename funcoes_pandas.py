@@ -181,67 +181,72 @@ def reshape(df, shape_df, order='C', copy=True):
           df.remove(df[shape_df[0]])
 
 def loc(df, index, columns, *, loc_ind=None, loc_col=None):
-  """
-  Recebe uma matriz df, seus vetores associados index e columns, que contém os rótulos de linha e coluna respectivamente,
-  e os rótulos de linha (loc_ind) e de coluna (loc_col) os quais queremos acessar em df. Os parâmetros loc_ind e loc_col podem
-  ser apenas um rótulo ou uma lista de rótulos. O valor de retorno será uma matriz contendo somente os elementos que estão
-  em loc_ind e/ou loc_col em df, juntamente com seus vetores associados de linhas e colunas.
-  """
+    """
+    Recebe uma matriz df, seus vetores associados index e columns, que contém os rótulos de linha e coluna respectivamente,
+    e os rótulos de linha (loc_ind) e de coluna (loc_col) os quais queremos acessar em df. Os parâmetros loc_ind e loc_col podem
+    ser apenas um rótulo ou uma lista de rótulos. O valor de retorno será uma matriz contendo somente os elementos que estão
+    em loc_ind e/ou loc_col em df, juntamente com seus vetores associados de linhas e colunas.
+    """
+    dimensao = shape(df)
 
-  dimensao = shape(df)
+    # criando uma nova matriz para inserir os elementos que estão em loc_ind e/ou loc_col em df
+    new_df = []
 
-  # criando uma nova matriz para inserir os elementos que estão em loc_ind e/ou loc_col em df
-  new_df = []
+    new_index = []
+    new_col = []
 
-  new_index = []
-  new_col = []
-
-  # transformando os parametros loc_ind e loc_col em listas caso não sejam
-  if type(loc_ind) != list:
-      new_index.append(loc_ind)
-  else:
-      new_index = loc_ind.copy()
-
-
-  if type(loc_col) != list:
-      new_col.append(loc_col)
-  else:
-      new_col = loc_col.copy()
-
-  # iterando o df original para identificar os elementos serão inseridos em new_df
-  for i in range(dimensao[0]):
-      linha = []
-
-      # como o usuário pode inserir somente uma lista/elemento de linhas ou colunas, ou ambos,
-      # usaremos variáveis auxiliares para facilitar a separação dos elementos requeridos
-      aux_l = False
-      aux_c = False
-
-      if new_index[0] != None:
-          for k in range(len(new_index)):
-              if index[i] == new_index[k]:
-                  aux_l = True
-      else:
-          aux_l = True
-
-      for j in range(dimensao[1]):
-          aux_c = False
-
-          if new_col[0] != None and aux_l == True:
-              for k in range(len(new_col)):
-                  if columns[j] == new_col[k]:
-                      aux_c = True
-          else:
-              aux_c = True
-
-          if aux_c == True and aux_l == True:
-              linha.append(df[i][j])
-
-      if linha != []:
-          new_df.append(linha)
+    # transformando os parametros loc_ind e loc_col em listas caso não sejam
+    if loc_ind == None:
+        new_index = index.copy()
+    elif type(loc_ind) != list:
+        new_index.append(loc_ind)
+    else:
+        new_index = loc_ind.copy()
 
 
-  return new_df,new_index,new_col
+    if loc_col == None:
+        new_col = columns.copy()
+    elif type(loc_col) != list:
+        new_col.append(loc_col)
+    else:
+        new_col = loc_col.copy()
+
+    print(new_col)
+
+    # iterando o df original para identificar os elementos serão inseridos em new_df
+    for i in range(dimensao[0]):
+        linha = []
+        
+        # como o usuário pode inserir somente uma lista/elemento de linhas ou colunas, ou ambos,
+        # usaremos variáveis auxiliares para facilitar a separação dos elementos requeridos
+        aux_l = False
+        aux_c = False
+
+        if new_index[0] != None:
+            for k in range(len(new_index)):
+                if index[i] == new_index[k]:
+                    aux_l = True
+        else:
+            aux_l = True
+
+        for j in range(dimensao[1]):
+            aux_c = False
+
+            if new_col[0] != None and aux_l == True:
+                for k in range(len(new_col)):
+                    if columns[j] == new_col[k]:
+                        aux_c = True
+            else:
+                aux_c = True
+
+            if aux_c == True and aux_l == True:
+                linha.append(df[i][j])
+            
+        if linha != []:
+            new_df.append(linha)
+        
+
+    return new_df,new_index,new_col
 
 def iloc(df, index, columns, *, iloc_ind=None, iloc_col=None):
     """
