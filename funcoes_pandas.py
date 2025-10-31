@@ -211,8 +211,6 @@ def loc(df, index, columns, *, loc_ind=None, loc_col=None):
     else:
         new_col = loc_col.copy()
 
-    print(new_col)
-
     # iterando o df original para identificar os elementos serão inseridos em new_df
     for i in range(dimensao[0]):
         linha = []
