@@ -4506,33 +4506,71 @@ def maiorTamanho (v):
     
     return maior
 
-def head(df, index, col, n = 5):
+def head(df, col, ind, n=5):
+
     """
-    Deve imprimir o dataframe (matriz df e seus vetores associados de linhas e colunas, index e col). O parâmetro n indica a quantidade de linhas que devem ser impressas, sendo 5 seu valor padrão.
+    Função que recebe um DataFrame para imprimir as suas n primeiras linhas
+    Seus parâmetros são:
+     - df: Matriz com os elementos do DataFrame
+     - col: Vetor com os rótulos das colunas do DataFrame
+     - ind: Vetor com os indexes das linhas do DataFrame
+     - n: Quantidade de linhas que serão impressas
+    Retorna: Nada
     """
-    numlin, numcol = shape(df)
-    
-    maiorTamanhoIndex = maiorTamanho(index)
 
-    formatInd = "{:>" + str(maiorTamanhoIndex) + "} "
+    dict_columns = {}
+    dtype_columns = [None]*len(col)
 
-    print(formatInd.format(""), end=" ")
+    for i in range(len(df)):
+        for j in range(len(df[i])):
+            if dtype_columns[j] != float:
+                dtype_columns[j] = type(df[i][j])
 
-    if n > numlin:
-        n = numlin
+    for j in range(len(col)):
+        for i in range(len(df) if n > len(df) else n):
+            if col[j] not in dict_columns.keys():
+                dict_columns.update({col[j]:[len(str(col[j]))]})
 
-    for i in range (numcol):
-        print('{0:>} '.format(col[i]), end=" ")
-    print()
-    
-    for i in range(n):
-        print(formatInd.format(index[i]), end=" ")
+            if j < len(df[i]):
+                if isinstance(df[i][j], (int, float)) and dtype_columns[j] == float and not math.isnan(df[i][j]):
+                    dict_columns.get(col[j]).append(len(str(int(df[i][j])))+6)
+                else:
+                    dict_columns.get(col[j]).append(len(str(df[i][j])))
 
-        for j in range (numcol):
-            formatElemento = "{:>" + str(len(str(col[j]))) + "} "
-            if dtype(df[i][j]) == 'float':
-                print(formatElemento.format(str(df[i][j])), end=" ")
-            else:
-                print(formatElemento.format(df[i][j]), end=" ")
+    list_ind = []
 
-        print()
+    for i in range(len(ind)):
+        list_ind.append(len(str(ind[i])))
+
+    keys = list(dict_columns.keys())
+
+    for i in range(len(keys)):
+        dict_columns[keys[i]] = max(dict_columns.get(keys[i]))
+
+    # Impressão
+
+    string = "{:^" + str(max(list_ind)) + "} "
+
+    col_str = string
+
+    for j in range(len(col)):
+        col_str = col_str + "{:>" + str(dict_columns.get(col[j])) + "}"
+
+        if isinstance(df[0][j], float):
+            string = string + "{:>" + str(dict_columns.get(col[j])) + ".5f}"
+        else:
+            string = string + "{:>" + str(dict_columns.get(col[j])) + "}"
+
+        if j < len(col)-1:
+            string = string + "  "
+            col_str = col_str + "  "
+
+    print(col_str.format("", *col))
+
+    for i in range(len(df)):
+        for j in range(len(df[i])):
+            if not isinstance(df[i][j], (int, float)):
+                df[i][j] = str(df[i][j])
+
+    for i in range(len(df) if n > len(df) else n):
+        print(string.format(str(ind[i]), *df[i]))
