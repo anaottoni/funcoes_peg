@@ -854,23 +854,26 @@ def conta_linha (df, linha, col, subset):
     """
 
     cont = 0
-    aux = False
+    aux = True
+
     for i in range(shape(df)[0]):
+        aux = True
+
         for j in range(shape(df)[1]):
+            if aux == True:
+              if acha_elemento(subset, col[j]):
+                  if dtype(linha[j]) != 'str' and math.isnan(linha[j]):
+                      if math.isnan(df[i][j]):
+                          aux = True
+                      else:
+                          aux = False
 
-            if acha_elemento(subset, col[j]):
-                if dtype(linha[j]) != 'str' and math.isnan(linha[j]):
-                    if math.isnan(df[i][j]):
-                        aux = True
-                    else:
-                        aux = False
-
-                else:
-                    if df[i][j] == linha[j]:
-                        aux = True
-                    else:
-                        aux = False
-                        continue
+                  else:
+                      if df[i][j] == linha[j]:
+                          aux = True
+                      else:
+                          aux = False
+                          break
 
         if aux == True:
             cont+=1
@@ -882,7 +885,7 @@ def chave_df(m):
 
 def df_value_counts(df, col, subset=None, normalize=False, sort=True, ascending=False, dropna=True):
     """
-    Função recebe uma amtriz df e retorna uma matriz contendo a contagem de cada
+    Função recebe uma matriz df e retorna uma matriz contendo a contagem de cada
     linha distinta presente em df, de acordo com os elementos que estão presentes
     em todas as colunas caso subset=None. Caso subset receba uma lista de rótulos
     das colunas, somente essas colunas serão levadas em consideração na contagem.
@@ -905,7 +908,7 @@ def df_value_counts(df, col, subset=None, normalize=False, sort=True, ascending=
 
         for j in range(num_col):
             # verificando se o elemento a ser inserido no vetor é nan e se dropna é verdadeiro
-            if dropna == True and math.isnan(df[i][j]):
+            if dropna == True and math.isnan(df[i][j]) and acha_elemento(subset, col[j]):
                 linha = [] # se for, deixar a linha vazia
                 break
 
