@@ -805,10 +805,13 @@ def series_value_counts (v, normalize=False, sort=True,ascending=False, bins=Non
                 valor_qtd.append(linha)
 
     else:
-        amplitude = (maior_valor(v)-menor_valor(v))/bins
+        maior_v = maior_valor(v)
+        menor_v = menor_valor(v)
 
-        inferior = menor_valor(v)-0.005
-        superior = menor_valor(v) + amplitude
+        amplitude = (maior_v-menor_v)/bins
+
+        inferior = menor_v-0.005
+        superior = menor_v + amplitude
 
         for i in range(bins):
             linha = []
