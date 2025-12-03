@@ -534,11 +534,11 @@ def min_col(df):
 
 def minMaxScaler(df, feature_range=(0,1), *,copy=True, clip=False):
     """
-    Recebe uma amtriz df e padroniza seus valores com a técnica min-max,
-    de forma que todos os seus elementos serão padronizados para o intervalo dado pela tupla feature_range
-    (que possui valor padrão de 0 e 1). A matriz df padronizada será o valor de retorno da função caso
+    Recebe uma matriz df e normaliza seus valores com a técnica min-max,
+    de forma que todos os seus elementos serão normalizados para o intervalo dado pela tupla feature_range
+    (que possui valor padrão de 0 e 1). A matriz df normalizada será o valor de retorno da função caso
     copy = True, caso contrário a função não terá valor de retorno e as mudanças serão feitas diretamente em df.
-    Caso clip=True, todos os valores resultantes da padronização que não estiverem no intervalo de feature_range serão
+    Caso clip=True, todos os valores resultantes da normalização que não estiverem no intervalo de feature_range serão
     forçados a estarem no intervalo.
     """
 
