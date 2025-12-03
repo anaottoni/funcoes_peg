@@ -4572,11 +4572,13 @@ def head(df, col, ind, n=5):
             col_str = col_str + "  "
 
     print(col_str.format("", *col))
+    
+    df_copy = copy.deepcopy(df)
 
-    for i in range(len(df)):
-        for j in range(len(df[i])):
-            if not isinstance(df[i][j], (int, float)):
-                df[i][j] = str(df[i][j])
+    for i in range(len(df_copy)):
+        for j in range(len(df_copy[i])):
+            if type(df_copy[i][j]) != int and type(df_copy[i][j]) != float:
+                df_copy[i][j] = str(df_copy[i][j])
 
-    for i in range(len(df) if n > len(df) else n):
-        print(string.format(str(ind[i]), *df[i]))
+    for i in range(len(df_copy) if n > len(df_copy) else n):
+        print(string.format(str(ind[i]), *df_copy[i]))
