@@ -175,7 +175,7 @@ def reshape(df, shape_df, order='C', copy=True):
 
             ind_coluna += 1
 
-      # Depois de modificar as linhas necess
+      # Depois de modificar as linhas necessessarias
       if shape_df[0] < shape_ant[0]:
         for i in range(shape_df[0], shape_ant[0]):
           df.remove(df[shape_df[0]])
@@ -367,7 +367,7 @@ def insert (df, columns, loc, col, value, allowduplicates=False):
 
       df[i].append(aux1)
 
-def rename (mapper=None, *, index=None, columns=None, axis=None, inplace=False):
+def rename (axis=1, mapper=None, *, index=None, columns=None, inplace=False):
     """
     Renomeia os rótulos de linha e coluna, representados pelos vetores index e columns.
     Além das listas de rótulos, também recebe um dicionário ou função mapper que será
