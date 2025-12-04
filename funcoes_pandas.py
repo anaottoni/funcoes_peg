@@ -1102,7 +1102,7 @@ def min_value_col (df, col):
         if null_check(df[i][col]) == True:
             menor = df[i][col]
             break
-
+        
         if df[i][col] < menor:
             menor = df[i][col]
 
@@ -1216,7 +1216,7 @@ def has_numeric_values(df):
     numlin, numcol = shape(df)
 
     for i in range(numcol):
-        if type(df[0][i]) == int or type(df[0][i]) == float or null_check(df[0][i]) == True:
+        if type(df[0][i]) == int or type(df[0][i]) == float:
             return True
 
     return False
@@ -1228,7 +1228,7 @@ def has_not_numeric_values(df):
     numlin, numcol = shape(df)
 
     for i in range(numcol):
-        if type(df[0][i]) != int and type(df[0][i]) != float and null_check(df[0][i]) == False:
+        if type(df[0][i]) != int and type(df[0][i]) != float:
             return True
 
     return False
@@ -1588,7 +1588,7 @@ def sort_values(df, by, index, columns, *, axis=0, ascending=True, inplace=False
 
         return copy_df, copy_index, copy_columns
     
-def min_index_col(df, col):
+def min_index_in_col(df, col):
     """
     Encontra o índice da linha do menor valor presente na matriz df e coluna col.
     """
@@ -1613,7 +1613,7 @@ def min_index_col(df, col):
 
     return pos_menor
 
-def verifica_nulo_coluna (df,col):
+def verify_null_col (df,col):
     """
     Recebe uma matriz df e um índice de coluna col e retorna o índice
     da linha que possuir valor nulo na referida coluna. Caso não houver, retorna -1.
@@ -1625,7 +1625,7 @@ def verifica_nulo_coluna (df,col):
             return i
     return -1
 
-def verifica_nulo_linha (df,ind):
+def verify_null_index (df,ind):
     """
     Recebe uma matriz df e um índice de linha e retorna o índice
     da coluna que possuir valor nulo na referida linha. Caso não houver, retorna -1.
@@ -1637,7 +1637,7 @@ def verifica_nulo_linha (df,ind):
             return i
     return -1
 
-def minimo_linha(df, ind):
+def min_col_in_ind(df, ind):
     """
     Encontra o índice da coluna do menor valor presente na matriz df e linha ind.
     """
@@ -1681,13 +1681,13 @@ def idxmin(df, index, columns, axis=0,skipna=True):
             linha.append(columns[i])
 
             if skipna == True:
-                aux = verifica_nulo_coluna(df,i)
+                aux = verify_null_col(df,i)
                 if aux != -1:
                     linha.append(index[aux])
                 else:
-                    linha.append(index[min_index_col(df,i)])
+                    linha.append(index[min_index_in_col(df,i)])
             else:
-                linha.append(index[min_index_col(df,i)])
+                linha.append(index[min_index_in_col(df,i)])
             new_df.append(linha)
 
     else:
@@ -1696,18 +1696,18 @@ def idxmin(df, index, columns, axis=0,skipna=True):
             linha.append(index[i])
 
             if skipna == True:
-                aux = verifica_nulo_linha(df,i)
+                aux = verify_null_index(df,i)
                 if aux != -1:
                     linha.append(columns[aux])
                 else:
-                    linha.append(columns[minimo_linha(df,i)])
+                    linha.append(columns[min_col_in_ind(df,i)])
             else:
-                linha.append(columns[minimo_linha(df,i)])
+                linha.append(columns[min_col_in_ind(df,i)])
             new_df.append(linha)
 
     return new_df
 
-def maximo_col(df, col):
+def max_ind_in_col(df, col):
     """
     Encontra o índice da linha do maior valor presente na matriz df e coluna col.
     """
@@ -1732,7 +1732,7 @@ def maximo_col(df, col):
 
     return pos_maior
 
-def maximo_linha(df, ind):
+def max_col_in_ind(df, ind):
     """
     Encontra o índice da coluna do maior valor presente na matriz df e linha ind.
     """
@@ -1773,14 +1773,14 @@ def idxmax(df, index, columns, axis=0):
         for i in range(numcol):
             linha = []
             linha.append(columns[i])
-            linha.append(index[maximo_col(df,i)])
+            linha.append(index[max_ind_in_col(df,i)])
             new_df.append(linha)
 
     else:
         for i in range(numlin):
             linha = []
             linha.append(index[i])
-            linha.append(columns[maximo_linha(df,i)])
+            linha.append(columns[max_col_in_ind(df,i)])
             new_df.append(linha)
 
     return new_df
