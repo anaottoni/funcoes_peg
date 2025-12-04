@@ -436,7 +436,7 @@ def rename (axis=1, mapper=None, *, index=None, columns=None, inplace=False):
                     else:
                         new_col.append(mapper(columns[i]))
 
-def verifica_se_nulo(valor):
+def null_check(valor):
     """
     Recebe valor e retorna True se valor for nulo e False caso contrário.
     """
@@ -460,7 +460,7 @@ def notnull(df):
         linha = []
 
         for j in range(dimensao[1]):
-            if verifica_se_nulo(df[i][j]):
+            if null_check(df[i][j]):
                 linha.append(False)
             else:
                 linha.append(True)
@@ -483,7 +483,7 @@ def isnull(df):
         linha = []
 
         for j in range(dimensao[1]):
-            if verifica_se_nulo(df[i][j]):
+            if null_check(df[i][j]):
                 linha.append(True)
             else:
                 linha.append(False)
@@ -582,7 +582,7 @@ def minMaxScaler(df, feature_range=(0,1), *,copy=True, clip=False):
 
                 df[i][j] = x
 
-def media_col(df):
+def mean_col(df):
     """
     Recebe uma matriz df e retorna um vetor lista_media com n valores,
     onde o i-esimo elemento de lista_media corresponde a media da i-esima
@@ -603,7 +603,7 @@ def media_col(df):
 
     return lista_media
 
-def desvio_padrao_col (df):
+def std_col (df):
     """
     Recebe uma matriz df e retorna um vetor lista_dp com n valores, onde o
     i-esimo elemento de lista_dp corresponde ao desvio padrão da i-esima
@@ -612,7 +612,7 @@ def desvio_padrao_col (df):
 
     lista_dv = []
 
-    medias = media_col(df)
+    medias = mean_col(df)
 
     dimensao = shape(df)
 
@@ -637,8 +637,8 @@ def standardScaler(df, *, copy=True,with_mean=True, with_std=True):
 
     dimensao = shape(df)
 
-    lista_media = media_col(df)
-    lista_dv = desvio_padrao_col(df)
+    lista_media = mean_col(df)
+    lista_dv = std_col(df)
 
     if copy == True:
         novo_df = []
@@ -694,23 +694,23 @@ def dtype (e):
     elif type(e) == complex:
         return "complex"
 
-def procura_coluna(matriz, coluna, valor):
+def find_column(df, col, v):
     """
     Recebe uma matriz e verifica se o valor já está presente na coluna
     recebida por parâmetro.
     """
 
-    if dtype(valor) != 'str' and math.isnan(valor):
-        for i in range(len(matriz)):
-            if math.isnan(float(matriz[i][coluna])):
+    if dtype(v) != 'str' and math.isnan(v):
+        for i in range(len(df)):
+            if math.isnan(float(df[i][col])):
                 return True
     else:
-        for i in range(len(matriz)):
-            if matriz[i][coluna] == valor:
+        for i in range(len(df)):
+            if df[i][col] == v:
                 return True
     return False
 
-def conta_valor_vetor (vetor, valor):
+def count_value_series (series, v):
     """
     Recebe um vetor e retorna a quantidade de vezes que o valor recebido por parâmetro
     aparece no vetor.
@@ -718,24 +718,24 @@ def conta_valor_vetor (vetor, valor):
 
     cont = 0
 
-    if dtype(valor) != 'str' and math.isnan(valor):
-        for i in range(len(vetor)):
-            if math.isnan(vetor[i]):
+    if dtype(v) != 'str' and math.isnan(v):
+        for i in range(len(series)):
+            if math.isnan(series[i]):
                 cont+=1
     else:
-        for i in range(len(vetor)):
-            if vetor[i] == valor:
+        for i in range(len(series)):
+            if series[i] == v:
                 cont+=1
 
     return cont
 
-def chave_series(m):
+def key_series(m):
     """
     Função auxiliar para ordenação em series_value_counts.
     """
     return m[1]
 
-def menor_valor(v):
+def min_value(v):
     """
     Recebe um vetor v e retorna o menor valor desse vetor.
     """
@@ -748,7 +748,7 @@ def menor_valor(v):
 
     return menor
 
-def maior_valor(v):
+def max_value(v):
     """
     Recebe um vetor v e retorna o maior valor desse vetor.
     """
@@ -783,7 +783,7 @@ def series_value_counts (v, normalize=False, sort=True,ascending=False, bins=Non
             # valor_qtd, de modo que só irá acrescentar o referido elemento e
             # a quantidade de vezes que ele aparece em v se ele ainda não estiver
             # em valor_qtd
-            if procura_coluna(valor_qtd, 0, v[i]) == False:
+            if find_column(valor_qtd, 0, v[i]) == False:
 
                 # se dropna for verdadeiro e v[i] igual a nan, então sua contagem não será incluida
                 if dropna == True and math.isnan(v[i]):
@@ -795,18 +795,18 @@ def series_value_counts (v, normalize=False, sort=True,ascending=False, bins=Non
 
                 # se normalize é igual a false, então a frequência absoluta simples do elemento será inseida no vetor
                 if normalize == False:
-                    linha.append(conta_valor_vetor(v, v[i]))
+                    linha.append(count_value_series(v, v[i]))
 
                 # caso contrário, a frequência relativa (freq. absoluta/freq. total) será inserida no vetor
                 else:
-                    linha.append(conta_valor_vetor(v, v[i])/freq_total)
+                    linha.append(count_value_series(v, v[i])/freq_total)
 
                 # depois, inserimos o vetor auxiliar como uma nova linha de valor_qtd
                 valor_qtd.append(linha)
 
     else:
-        maior_v = maior_valor(v)
-        menor_v = menor_valor(v)
+        maior_v = max_value(v)
+        menor_v = min_value(v)
 
         amplitude = (maior_v-menor_v)/bins
 
@@ -831,24 +831,24 @@ def series_value_counts (v, normalize=False, sort=True,ascending=False, bins=Non
 
     # depois, ordenar a matriz valor_qtd de acordo com o valor de ascending e sort
     if sort == True and ascending == False:
-        valor_qtd.sort(reverse=True,key=chave_series)
+        valor_qtd.sort(reverse=True,key=key_series)
     elif sort == True and ascending == True:
-        valor_qtd.sort(key=chave_series)
+        valor_qtd.sort(key=key_series)
 
     return valor_qtd
 
-def acha_elemento (vetor, e):
+def find_value (series, e):
     """
-    Recebe vetor e um elemento e que pode ou não estar em vetor.
+    Recebe vetor series e um elemento e que pode ou não estar em vetor.
     Retorna True se e estiver em vetor e False caso contrário.
     """
-    for i in range(len(vetor)):
-        if vetor[i] == e:
+    for i in range(len(series)):
+        if series[i] == e:
             return True
 
     return False
 
-def conta_linha (df, linha, col, subset):
+def count_row (df, index, col, subset):
     """
     Conta quantas vezes uma linha de df aparece na matriz.
     """
@@ -861,15 +861,15 @@ def conta_linha (df, linha, col, subset):
 
         for j in range(shape(df)[1]):
             if aux == True:
-              if acha_elemento(subset, col[j]):
-                  if dtype(linha[j]) != 'str' and math.isnan(linha[j]):
+              if find_value(subset, col[j]):
+                  if dtype(index[j]) != 'str' and math.isnan(index[j]):
                       if math.isnan(df[i][j]):
                           aux = True
                       else:
                           aux = False
 
                   else:
-                      if df[i][j] == linha[j]:
+                      if df[i][j] == index[j]:
                           aux = True
                       else:
                           aux = False
@@ -880,7 +880,7 @@ def conta_linha (df, linha, col, subset):
 
     return cont
 
-def chave_df(m):
+def key_df(m):
     return m[len(m)-1]
 
 def df_value_counts(df, col, subset=None, normalize=False, sort=True, ascending=False, dropna=True):
@@ -908,11 +908,11 @@ def df_value_counts(df, col, subset=None, normalize=False, sort=True, ascending=
 
         for j in range(num_col):
             # verificando se o elemento a ser inserido no vetor é nan e se dropna é verdadeiro
-            if dropna == True and math.isnan(df[i][j]) and acha_elemento(subset, col[j]):
+            if dropna == True and math.isnan(df[i][j]) and find_value(subset, col[j]):
                 linha = [] # se for, deixar a linha vazia
                 break
 
-            if acha_elemento(subset, col[j]):
+            if find_value(subset, col[j]):
                 linha.append(df[i][j])
 
         # verifica se a linha i de v já está presente ou não na matriz e se está vazia
@@ -921,21 +921,21 @@ def df_value_counts(df, col, subset=None, normalize=False, sort=True, ascending=
             aux.append(linha.copy())
 
             if normalize == False:
-                linha.append(conta_linha(df,df[i], col, subset))
+                linha.append(count_row(df,df[i], col, subset))
 
             else:
-                linha.append(conta_linha(df,df[i], col, subset)/num_linhas)
+                linha.append(count_row(df,df[i], col, subset)/num_linhas)
 
             linhas_qtd.append(linha)
 
     if sort == True and ascending == False:
-        linhas_qtd.sort(reverse=True,key=chave_df)
+        linhas_qtd.sort(reverse=True,key=key_df)
     elif sort == True and ascending == True:
-        linhas_qtd.sort(key=chave_df)
+        linhas_qtd.sort(key=key_df)
 
     return linhas_qtd
 
-def contar_nao_nulos_coluna(df, col):
+def count_not_null_column(df, col):
     """
     Recebe uma matriz df e retorna a quantidade de valores não nulos da coluna de índice col.
     """
@@ -949,7 +949,7 @@ def contar_nao_nulos_coluna(df, col):
 
     return cont
 
-def lista_tipos (df):
+def types_df (df):
     """
     Recebe uma matriz df e retorna um vetor contendo todos os tipos dos valores
     presentes em df.
@@ -964,7 +964,7 @@ def lista_tipos (df):
 
         tipo = dtype(df[0][i])
 
-        if  procura_coluna(tipos, 0, tipo) == False:
+        if  find_column(tipos, 0, tipo) == False:
             linha.append(tipo)
             cont = 0
 
@@ -1008,14 +1008,14 @@ def info(df, col, index, verbose=None, buf=None,  memory_usage=None, show_counts
                     print('{0:^3} {1:10} {2:14} {3:10}'.format('---','------','--------------','-----'))
 
                 for i in range(numcol):
-                    print('{0:^3} {1:<10} {2:<14} {3:<10}'.format(i,col[i],str(contar_nao_nulos_coluna(df,i))+' non-null',dtype(df[0][i])))
+                    print('{0:^3} {1:<10} {2:<14} {3:<10}'.format(i,col[i],str(count_not_null_column(df,i))+' non-null',dtype(df[0][i])))
 
             else:
                 print("Columns:", numcol, "entries,", col[0], "to", col[numcol-1])
 
             print("dtypes: ", end="")
 
-            tipos = lista_tipos(df)
+            tipos = types_df(df)
             numtipos = len(tipos)
 
             for i in range(numtipos-1):
@@ -1046,14 +1046,14 @@ def info(df, col, index, verbose=None, buf=None,  memory_usage=None, show_counts
                     buf.write('{0:^3} {1:10} {2:14} {3:10}'.format('---','------','--------------','-----')+"\n")
 
                 for i in range(numcol):
-                    buf.write('{0:^3} {1:<10} {2:<14} {3:<10}'.format(i,col[i],str(contar_nao_nulos_coluna(df,i))+' non-null',dtype(df[0][i]))+"\n")
+                    buf.write('{0:^3} {1:<10} {2:<14} {3:<10}'.format(i,col[i],str(count_not_null_column(df,i))+' non-null',dtype(df[0][i]))+"\n")
 
             else:
                 buf.write("Columns:", numcol, "entries,", col[0], "to", col[numcol-1]+"\n")
 
             buf.write("dtypes: ")
 
-            tipos = lista_tipos(df)
+            tipos = types_df(df)
             numtipos = len(tipos)
 
             for i in range(numtipos-1):
@@ -1065,7 +1065,7 @@ def info(df, col, index, verbose=None, buf=None,  memory_usage=None, show_counts
             elif memory_usage == 'deep':
                 buf.write("memory usage: "+str(asizeof.asizeof(df)+asizeof.asizeof(index)+asizeof.asizeof(col))+"+ bytes"+"\n")
                 
-def contar_nao_nulos_coluna(df, col):
+def count_not_null_column(df, col):
     """
     Recebe uma matriz df e retorna a quantidade de valores não nulos da coluna de índice col
     """
@@ -1078,7 +1078,7 @@ def contar_nao_nulos_coluna(df, col):
 
     return cont
 
-def maior_elemento_col (df, col):
+def max_value_col (df, col):
     """
     Recebe uma matriz df e retorna o maior elemento da coluna de índice col
     """
@@ -1091,7 +1091,7 @@ def maior_elemento_col (df, col):
 
     return maior
 
-def menor_elemento_col (df, col):
+def min_value_col (df, col):
     """
     Recebe uma matriz df e retorna o menor elemento da coluna de índice col
     """
@@ -1099,12 +1099,16 @@ def menor_elemento_col (df, col):
 
     menor = df[0][col]
     for i in range(dimensao[0]):
+        if null_check(df[i][col]) == True:
+            menor = df[i][col]
+            break
+
         if df[i][col] < menor:
             menor = df[i][col]
 
     return menor
 
-def desvio_padrao_ind_col(df, col):
+def std_ind_col(df, col):
     """
     Recebe uma matriz df e retorna o desvio padrão da coluna de índice col
     """
@@ -1113,11 +1117,11 @@ def desvio_padrao_ind_col(df, col):
     somatoria = 0
 
     for i in range(dimensao[0]):
-        somatoria += (df[i][col]-calcula_media_colunas(df,col))**2
+        somatoria += (df[i][col]-mean_column(df,col))**2
 
     return math.sqrt(somatoria/(dimensao[0]-1))
 
-def calcula_media_colunas(df, col):
+def mean_column(df, col):
     """
     Recebe uma matriz df e retorna a média dos valores da coluna de índice col
     """
@@ -1130,7 +1134,7 @@ def calcula_media_colunas(df, col):
 
     return contador/numlin
 
-def transforma_col_vetor(df,col):
+def transform_col_series(df,col):
     """
     Recebe uma matriz df e um índice col e retorna um vetor contendo os elementos
     da coluna col de df
@@ -1143,7 +1147,7 @@ def transforma_col_vetor(df,col):
 
     return vetor
 
-def calcula_percentil(df,col, p):
+def get_percentile(df,col, p):
     """
     Recebe uma matriz df, um índice col e um percentil p e retorna o valor do
     referido percentil na coluna col de df.
@@ -1151,7 +1155,7 @@ def calcula_percentil(df,col, p):
     numlinhas, numcol = shape(df)
     pos = p * (numlinhas-1)
 
-    v = transforma_col_vetor(df,col)
+    v = transform_col_series(df,col)
 
     v.sort()
 
@@ -1163,7 +1167,7 @@ def calcula_percentil(df,col, p):
         possup = math.ceil(pos)
         return v[posinf] + (pos - posinf) * (v[possup] - v[posinf])
 
-def conta_aparicoes_col(df,col,e):
+def count_value_in_col(df,col,e):
     """
     Recebe uma matriz df, um índice col e um elemento e, retorna a quantidade de
     vezes que e aparece na coluna col em df.
@@ -1176,7 +1180,7 @@ def conta_aparicoes_col(df,col,e):
             cont+= 1
     return cont
 
-def valor_mais_comum_col(df,col):
+def most_common_column_value(df,col):
     """
     Recebe uma matriz df e retorna o valor mais comum da coluna de índice col.
     """
@@ -1187,7 +1191,7 @@ def valor_mais_comum_col(df,col):
     numlin, numcol = shape(df)
 
     for i in range(numlin):
-       aux = conta_aparicoes_col(df,col,df[i][col])
+       aux = count_value_in_col(df,col,df[i][col])
 
        if aux > freq:
            freq = aux
@@ -1195,36 +1199,36 @@ def valor_mais_comum_col(df,col):
 
     return top, freq
 
-def conta_val_unicos(df, col):
+def count_unique_values(df, col):
     """
     Recebe uma matriz df e retorna a quantidade de valores únicos na coluna de índe col.
     """
-    elementos_col = transforma_col_vetor(df, col)
+    elementos_col = transform_col_series(df, col)
 
     valores_unicos = set(elementos_col)
 
     return len(valores_unicos)
 
-def tem_num(df):
+def has_numeric_values(df):
     """
     Recebe uma matriz df e verifica se esta possui valores númericos.
     """
     numlin, numcol = shape(df)
 
     for i in range(numcol):
-        if type(df[0][i]) == int or type(df[0][i]) == float:
+        if type(df[0][i]) == int or type(df[0][i]) == float or null_check(df[0][i]) == True:
             return True
 
     return False
 
-def tem_obj(df):
+def has_not_numeric_values(df):
     """
     Recebe uma matriz df e verifica se esta possui valores não numéricos.
     """
     numlin, numcol = shape(df)
 
     for i in range(numcol):
-        if type(df[0][i]) != int and type(df[0][i]) != float:
+        if type(df[0][i]) != int and type(df[0][i]) != float and null_check(df[0][i]) == False:
             return True
 
     return False
@@ -1243,8 +1247,8 @@ def describe(df, col, percentiles=None, include=None, exclude=None):
     ind = 0
 
     if(include == "all"):
-        temnum = tem_num(df)
-        temobj = tem_obj(df)
+        temnum = has_numeric_values(df)
+        temobj = has_not_numeric_values(df)
 
         if temnum == True:
             number = True
@@ -1304,12 +1308,12 @@ def describe(df, col, percentiles=None, include=None, exclude=None):
 
         if (eh_num == True and number == True) or (eh_num == False and obj == True):
             saida[0].append(col[j])
-            saida[1].append(contar_nao_nulos_coluna(df,j))
+            saida[1].append(count_not_null_column(df,j))
 
             if obj == True:
                 if eh_num == False:
-                    saida[2].append(conta_val_unicos(df,j))
-                    t, f = valor_mais_comum_col(df,j)
+                    saida[2].append(count_unique_values(df,j))
+                    t, f = most_common_column_value(df,j)
                     saida[3].append(t)
                     saida[4].append(f)
                 else:
@@ -1318,12 +1322,12 @@ def describe(df, col, percentiles=None, include=None, exclude=None):
                     saida[4].append("NaN")
             if number == True:
                 if eh_num == True:
-                    saida[2+ind].append(calcula_media_colunas(df,j))
-                    saida[3+ind].append(desvio_padrao_ind_col(df,j))
-                    saida[4+ind].append(menor_elemento_col(df,j))
+                    saida[2+ind].append(mean_column(df,j))
+                    saida[3+ind].append(std_ind_col(df,j))
+                    saida[4+ind].append(min_value_col(df,j))
                     for i in range(len(percentiles)):
-                        saida[5+i+ind].append(calcula_percentil(df,j,percentiles[i]))
-                    saida[5+len(percentiles)+ind].append(maior_elemento_col(df,j))
+                        saida[5+i+ind].append(get_percentile(df,j,percentiles[i]))
+                    saida[5+len(percentiles)+ind].append(max_value_col(df,j))
                 else:
                     saida[2+ind].append("NaN")
                     saida[3+ind].append("NaN")
@@ -1345,18 +1349,18 @@ def describe(df, col, percentiles=None, include=None, exclude=None):
 
     return saida
 
-def quick_sort_por_coluna(a, by, index, ascending, ini=0, fim=None):
+def quick_sort_col(a, by, index, ascending, ini=0, fim=None):
     """
     Algoritmo quick sort recursivo que ordena as linhas de a por coluna.
     """
     fim = fim if fim is not None else len(a)
     if ini < fim:
-        pp = particao_por_coluna(a, ini, fim, by, index, ascending)
-        quick_sort_por_coluna(a, by, index, ascending, ini, pp)
-        quick_sort_por_coluna(a, by, index, ascending, pp + 1, fim)
+        pp = partition_col(a, ini, fim, by, index, ascending)
+        quick_sort_col(a, by, index, ascending, ini, pp)
+        quick_sort_col(a, by, index, ascending, pp + 1, fim)
     return a
 
-def particao_por_coluna(a, ini, fim, by, index, ascending):
+def partition_col(a, ini, fim, by, index, ascending):
     """
     Realiza a etapa de partição do algoritmo quick sort por coluna, ordenando os valores das linhas de a.
     """
@@ -1377,18 +1381,18 @@ def particao_por_coluna(a, ini, fim, by, index, ascending):
 
     return ini - 1
 
-def quick_sort_por_linha(a, by, columns, ascending, ini=0, fim=None):
+def quick_sort_index(a, by, columns, ascending, ini=0, fim=None):
     """
     Algoritmo quick sort recursivo que ordena as colunas de a por linha.
     """
     fim = fim if fim is not None else len(a[0])
     if ini < fim:
-        pp = particao_por_linha(a, ini, fim, by, columns, ascending)
-        quick_sort_por_linha(a, by, columns, ascending, ini, pp)
-        quick_sort_por_linha(a, by, columns, ascending, pp + 1, fim)
+        pp = partition_index(a, ini, fim, by, columns, ascending)
+        quick_sort_index(a, by, columns, ascending, ini, pp)
+        quick_sort_index(a, by, columns, ascending, pp + 1, fim)
     return a
 
-def particao_por_linha(a, ini, fim, by, columns, ascending):
+def partition_index(a, ini, fim, by, columns, ascending):
     """
     Realiza a etapa de partição do algoritmo quick sort por linha, ordenando os valores das colunas de a.
     """
@@ -1415,7 +1419,7 @@ def particao_por_linha(a, ini, fim, by, columns, ascending):
 
     return ini - 1
 
-def procura_indice_por_rotulo(rotulos, nome):
+def find_index(rotulos, nome):
     """
     Procura o valor do índice de um rótulo (parâmetro nome) em uma lista de
     rótulos (parâmetro rotulos).
@@ -1425,7 +1429,7 @@ def procura_indice_por_rotulo(rotulos, nome):
         if rotulos[i] == nome:
             return i
 
-def organiza_nan(df, index, columns, by, axis, position):
+def organize_nan(df, index, columns, by, axis, position):
     """
     Organiza os valores nulos/nan do df na frente de todos os outros valores
     (caso position='first') ou atrás de todos os valores (caso position='last').
@@ -1444,13 +1448,13 @@ def organiza_nan(df, index, columns, by, axis, position):
         cont = 0
         if position == 'last':
             for i in range(numlin):
-                if verifica_se_nulo(df[i][by]) == False:
+                if null_check(df[i][by]) == False:
                     copy_df.append(df[i])
                     copy_ind.append(index[i])
                     cont+=1
 
             for i in range(numlin):
-                if verifica_se_nulo(df[i][by]):
+                if null_check(df[i][by]):
                     copy_df.append(df[i])
                     copy_ind.append(index[i])
 
@@ -1458,13 +1462,13 @@ def organiza_nan(df, index, columns, by, axis, position):
         else:
 
             for i in range(numlin):
-                if verifica_se_nulo(df[i][by]):
+                if null_check(df[i][by]):
                     cont+=1
                     copy_df.append(df[i])
                     copy_ind.append(index[i])
 
             for i in range(numlin):
-                if verifica_se_nulo(df[i][by]) == False:
+                if null_check(df[i][by]) == False:
                     copy_df.append(df[i])
                     copy_ind.append(index[i])
             ini = cont
@@ -1478,14 +1482,14 @@ def organiza_nan(df, index, columns, by, axis, position):
         if position == 'last':
             cont = 0
             for i in range(numcol):
-                if verifica_se_nulo(df[by][i]) == False:
+                if null_check(df[by][i]) == False:
                     cont+=1
                     for k in range(numlin):
                         copy_df[k].append(df[k][i])
                     copy_col.append(columns[i])
 
             for i in range(numcol):
-                if verifica_se_nulo(df[by][i]):
+                if null_check(df[by][i]):
                     for k in range(numlin):
                         copy_df[k].append(df[k][i])
                     copy_col.append(columns[i])
@@ -1495,14 +1499,14 @@ def organiza_nan(df, index, columns, by, axis, position):
         else:
             cont = 0
             for i in range(numcol):
-                if verifica_se_nulo(df[by][i]):
+                if null_check(df[by][i]):
                     cont+=1
                     for k in range(numlin):
                         copy_df[k].append(df[k][i])
                     copy_col.append(columns[i])
 
             for i in range(numcol):
-                if verifica_se_nulo(df[by][i]) == False:
+                if null_check(df[by][i]) == False:
                     for k in range(numlin):
                         copy_df[k].append(df[k][i])
                     copy_col.append(columns[i])
@@ -1527,8 +1531,8 @@ def sort_values(df, by, index, columns, *, axis=0, ascending=True, inplace=False
 
     if inplace == True:
         if axis == 0:
-            pos_by = procura_indice_por_rotulo(columns, by)
-            copy_df, copy_index, ini, fim = organiza_nan(df,index, columns, pos_by,axis,na_position)
+            pos_by = find_index(columns, by)
+            copy_df, copy_index, ini, fim = organize_nan(df,index, columns, pos_by,axis,na_position)
 
             df.clear()
             index.clear()
@@ -1536,14 +1540,14 @@ def sort_values(df, by, index, columns, *, axis=0, ascending=True, inplace=False
             df.extend(copy_df)
             index.extend(copy_index)
 
-            df = quick_sort_por_coluna(copy_df, by, index, ascending, ini, fim)
+            df = quick_sort_col(copy_df, by, index, ascending, ini, fim)
 
             if ignore_index == True:
                 for i in range(numlin):
                     index[i] = i
         else:
-            pos_by = procura_indice_por_rotulo(index, by)
-            copy_df, copy_columns, ini, fim = organiza_nan(df,index, columns, pos_by,axis,na_position)
+            pos_by = find_index(index, by)
+            copy_df, copy_columns, ini, fim = organize_nan(df,index, columns, pos_by,axis,na_position)
 
             df.clear()
             columns.clear()
@@ -1551,7 +1555,7 @@ def sort_values(df, by, index, columns, *, axis=0, ascending=True, inplace=False
             df.extend(copy_df)
             columns.extend(copy_columns)
 
-            df = quick_sort_por_linha(copy_df, pos_by, columns, ascending, ini, fim)
+            df = quick_sort_index(copy_df, pos_by, columns, ascending, ini, fim)
 
             if ignore_index == True:
                 for i in range(numcol):
@@ -1559,11 +1563,11 @@ def sort_values(df, by, index, columns, *, axis=0, ascending=True, inplace=False
 
     else:
         if axis == 0:
-            pos_by = procura_indice_por_rotulo(columns, by)
+            pos_by = find_index(columns, by)
 
-            copy_df, copy_index, ini, fim = organiza_nan(df,index, columns, pos_by,axis,na_position)
+            copy_df, copy_index, ini, fim = organize_nan(df,index, columns, pos_by,axis,na_position)
 
-            copy_df = quick_sort_por_coluna(copy_df, pos_by, copy_index, ascending, ini, fim)
+            copy_df = quick_sort_col(copy_df, pos_by, copy_index, ascending, ini, fim)
 
             if ignore_index == True:
                 for i in range(numlin):
@@ -1571,10 +1575,10 @@ def sort_values(df, by, index, columns, *, axis=0, ascending=True, inplace=False
 
             copy_columns.extend(columns)
         else:
-            pos_by = procura_indice_por_rotulo(index, by)
-            copy_df, copy_columns, ini, fim = organiza_nan(df,index, columns, pos_by,axis,na_position)
+            pos_by = find_index(index, by)
+            copy_df, copy_columns, ini, fim = organize_nan(df,index, columns, pos_by,axis,na_position)
 
-            copy_df = quick_sort_por_linha(copy_df, pos_by, copy_columns, ascending, ini, fim)
+            copy_df = quick_sort_index(copy_df, pos_by, copy_columns, ascending, ini, fim)
 
             if ignore_index == True:
                 for i in range(numcol):
@@ -1584,7 +1588,7 @@ def sort_values(df, by, index, columns, *, axis=0, ascending=True, inplace=False
 
         return copy_df, copy_index, copy_columns
     
-def minimo_col(df, col):
+def min_index_col(df, col):
     """
     Encontra o índice da linha do menor valor presente na matriz df e coluna col.
     """
@@ -1594,7 +1598,7 @@ def minimo_col(df, col):
     dimensao = shape(df)
 
     while(cont < dimensao[0]):
-        if verifica_se_nulo(df[cont][col]) == False:
+        if null_check(df[cont][col]) == False:
             menor = df[cont][col]
             break
         cont+=1
@@ -1603,7 +1607,7 @@ def minimo_col(df, col):
 
     if menor != None:
         for i in range(dimensao[0]):
-            if verifica_se_nulo(df[i][col]) == False and df[i][col] < menor:
+            if null_check(df[i][col]) == False and df[i][col] < menor:
                 menor = df[i][col]
                 pos_menor = i
 
@@ -1617,7 +1621,7 @@ def verifica_nulo_coluna (df,col):
     dimensao = shape(df)
 
     for i in range(dimensao[0]):
-        if verifica_se_nulo(df[i][col]) == True:
+        if null_check(df[i][col]) == True:
             return i
     return -1
 
@@ -1629,7 +1633,7 @@ def verifica_nulo_linha (df,ind):
     dimensao = shape(df)
 
     for i in range(dimensao[1]):
-        if verifica_se_nulo(df[ind][i]) == True:
+        if null_check(df[ind][i]) == True:
             return i
     return -1
 
@@ -1643,7 +1647,7 @@ def minimo_linha(df, ind):
     dimensao = shape(df)
 
     while(cont < dimensao[1]):
-        if verifica_se_nulo(df[ind][cont]) == False:
+        if null_check(df[ind][cont]) == False:
             menor = df[ind][cont]
             break
         cont+=1
@@ -1653,7 +1657,7 @@ def minimo_linha(df, ind):
     if menor != None:
 
         for i in range(dimensao[1]):
-            if verifica_se_nulo(df[ind][i]) == False and df[ind][i] < menor:
+            if null_check(df[ind][i]) == False and df[ind][i] < menor:
                 menor = df[ind][i]
                 pos_menor = i
 
@@ -1681,9 +1685,9 @@ def idxmin(df, index, columns, axis=0,skipna=True):
                 if aux != -1:
                     linha.append(index[aux])
                 else:
-                    linha.append(index[minimo_col(df,i)])
+                    linha.append(index[min_index_col(df,i)])
             else:
-                linha.append(index[minimo_col(df,i)])
+                linha.append(index[min_index_col(df,i)])
             new_df.append(linha)
 
     else:
@@ -1713,7 +1717,7 @@ def maximo_col(df, col):
     dimensao = shape(df)
 
     while(cont < dimensao[0]):
-        if verifica_se_nulo(df[cont][col]) == False:
+        if null_check(df[cont][col]) == False:
             maior = df[cont][col]
             break
         cont+=1
@@ -1722,7 +1726,7 @@ def maximo_col(df, col):
 
     if maior != None:
         for i in range(dimensao[0]):
-            if verifica_se_nulo(df[i][col]) == False and df[i][col] > maior:
+            if null_check(df[i][col]) == False and df[i][col] > maior:
                 maior = df[i][col]
                 pos_maior = i
 
@@ -1738,7 +1742,7 @@ def maximo_linha(df, ind):
     dimensao = shape(df)
 
     while(cont < dimensao[1]):
-        if verifica_se_nulo(df[ind][cont]) == False:
+        if null_check(df[ind][cont]) == False:
             maior = df[ind][cont]
             break
         cont+=1
@@ -1748,7 +1752,7 @@ def maximo_linha(df, ind):
     if maior != None:
 
         for i in range(dimensao[1]):
-            if verifica_se_nulo(df[ind][i]) == False and df[ind][i] > maior:
+            if null_check(df[ind][i]) == False and df[ind][i] > maior:
                 maior = df[ind][i]
                 pos_maior = i
 
